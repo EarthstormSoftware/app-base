@@ -32,13 +32,14 @@ on either. Where ApplPi OS owns the setting, the base asks it (below):
 | Reset settings | The product | The same (the app's state) |
 | The clock: NTP server, time zone | Offset and summer time rule | ApplPi OS's time zone (a name, as at flashing) and NTP server |
 | The watchdog (a stalled event loop restarts it) | The board's hardware watchdog | systemd's watchdog for the app (`WatchdogSec`, the base telling it the loop is alive); the Pi's hardware watchdog stays the OS's |
-| The device name | The product | Shown; changed in ApplPi OS's setup mode (it's the Pi's network name, which SSH and `applpi` know it by) |
-| Factory reset (forgets Wi-Fi) | Starts setup mode | Starts ApplPi OS's setup mode (its hotspot and HTTPS setup page) |
+| The device name | The product | Shown; changed in ApplPi OS's setup mode, which the page restarts into (`/api/setup-mode`): it's the Pi's network name, which SSH and `applpi` know it by |
+| Factory reset (forgets Wi-Fi) | Starts setup mode | `/api/factory-reset`: ApplPi OS forgets its settings and starts setup mode (its hotspot and HTTPS setup page) |
 | Wi-Fi network | Setup mode only | The same: ApplPi OS's setup mode, or flashing |
-| The Wi-Fi fallback: setup mode when Wi-Fi doesn't connect (on or off, after how many minutes, for how many) | The Pico layer (now a fixed 5 attempts, and 10 minutes) | ApplPi OS's `wifi_fallback` setting (`app-request wifi-fallback`), used at the next start |
+| The Wi-Fi fallback: setup mode when Wi-Fi doesn't connect (on or off, after how many minutes, for how many) | The Pico layer (now a fixed 5 attempts, and 10 minutes; to come with Pico PIR) | `/api/wifi`: ApplPi OS's `wifi_fallback` setting (`app-request wifi-fallback`), used at the next start |
 
-ApplPi OS's setup mode is its roadmap's step 7; until then, the name and Wi-Fi are set when flashing, and factory
-reset isn't offered.
+ApplPi OS's setup mode is its roadmap's step 7 (in the release after v0.4): the page offers the name, Wi-Fi fallback
+and factory reset only on an OS that has it (`os.setup` in /api/info, `data-os-setup` on the page). Before that, the
+name and Wi-Fi are set when flashing.
 
 ApplPi OS needs a few things for this (its roadmap's next step): a way for the app, which normally isn't root, to
 ask it to install a new app version (with the trial and going back), set the time zone and NTP server, restart
