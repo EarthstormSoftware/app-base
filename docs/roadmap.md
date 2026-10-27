@@ -35,6 +35,7 @@ on either. Where ApplPi OS owns the setting, the base asks it (below):
 | The device name | The product | Shown; changed in ApplPi OS's setup mode (it's the Pi's network name, which SSH and `applpi` know it by) |
 | Factory reset (forgets Wi-Fi) | Starts setup mode | Starts ApplPi OS's setup mode (its hotspot and HTTPS setup page) |
 | Wi-Fi network | Setup mode only | The same: ApplPi OS's setup mode, or flashing |
+| The Wi-Fi fallback: setup mode when Wi-Fi doesn't connect (on or off, after how many minutes, for how many) | The Pico layer (now a fixed 5 attempts, and 10 minutes) | ApplPi OS's `wifi_fallback` setting (`app-request wifi-fallback`), used at the next start |
 
 ApplPi OS's setup mode is its roadmap's step 7; until then, the name and Wi-Fi are set when flashing, and factory
 reset isn't offered.
