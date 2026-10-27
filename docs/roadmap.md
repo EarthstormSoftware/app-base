@@ -74,7 +74,7 @@ ignore what doesn't apply to them.
 
 Any product can have one (decided 2026-10-27): up to 8 events, each on chosen days at a time, or at sunrise or
 sunset plus or minus some minutes (from the device's location), and after a restart, once the clock is set, the
-latest event's action is done, so a power cut doesn't leave things wrong. The engine is the base's; the actions are
+latest event's action is done, so a power cut doesn't leave things wrong. The engine is the base's (`schedule.py`, with the page's editor in `base.js`); the actions are
 the product's: the light model gives on, off, a mode and a brightness, and Pico PIR (its first other user) sensing on
 or off. The clock comes from the platform: NTP with an offset and summer time rule on a Pico, the OS's NTP and time
 zone on a Pi; the base only asks it for the local time.
