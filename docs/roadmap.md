@@ -58,6 +58,10 @@ PlasmaStick and the Unicorn HAT are both lights: on or off, a mode with its para
 `Speed`, ...), a brightness, fades between them, and Home Assistant's JSON light schema with the modes as effects.
 That moves from PlasmaStick into the base, with the product giving its modes and drawing them on its LEDs.
 
+**Alerts** are too (asked for on 2026-10-27): with alerts switched on, an alert interrupts the light, on or off,
+flashing a colour for a while, and then it carries on as it was; from the API, MQTT, Home Assistant (a button and a
+switch) or another device's topic that the light watches (motion starting rings once). See the Unicorn's roadmap.
+
 **Groups** are part of the light model: lights given the same group name follow each other through a retained MQTT
 topic (power, mode, the colour in Colour mode, and the brightness unless that's turned off), and a member that
 starts or joins takes the group's state. Being in the base, different products can share a group (the Unicorn HAT

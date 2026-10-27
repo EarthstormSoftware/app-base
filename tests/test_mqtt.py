@@ -107,6 +107,28 @@ def test_home_assistant_commands():
     assert mqtt.parse_ha_command({'state': 'ON', 'brightness': 0}, modes)['brightness'] == 1
 
 
+@pytest.mark.parametrize('text, now', [
+    ('{"motion": true, "count": 3}', True), ('{"motion": false}', False), ('ON', True), ('OFF', False),
+    ('true', True), ('0', False), ('', False), ('ding', True), ('{"State": "on"}', True), ('{"other": 1}', True),
+])
+def test_what_a_watched_message_means(text, now):
+    assert mqtt.watched(text) is now
+
+
+@pytest.mark.parametrize('pattern, topic, matches', [
+    ('a/b', 'a/b', True), ('a/+', 'a/b', True), ('a/#', 'a/b/c', True), ('a/+', 'a/b/c', False),
+    ('a/b', 'a/c', False), ('a/b/c', 'a/b', False),
+])
+def test_topic_matching(pattern, topic, matches):
+    assert mqtt.topic_matches(pattern, topic) is matches
+
+
+def test_alert_messages():
+    assert mqtt.parse_alert('') == {}
+    assert mqtt.parse_alert('{"Colour": "#0000ff", "Seconds": 5, "Other": 1}') == {'colour': '#0000ff', 'seconds': 5}
+    assert mqtt.parse_alert('{"Active": false}') is None
+
+
 @pytest.mark.parametrize('payload', [{}, {'state': 'on'}, {'effect': 'Fire'}, {'brightness': 101},
                                      {'color': {'r': 300, 'g': 0, 'b': 0}}, {'color_temp': True}])
 def test_bad_home_assistant_commands_are_refused(payload):
