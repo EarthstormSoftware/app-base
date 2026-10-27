@@ -4,3 +4,6 @@
 *.html text eol=lf
 *.ps1  text
 *.md   text
+
+# Everything here runs on a Pi or a Pico, and base/VERSION has the files' hashes: LF on every checkout
+src/** text eol=lf
