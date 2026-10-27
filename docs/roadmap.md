@@ -78,8 +78,10 @@ zone on a Pi; the base only asks it for the local time.
 ### MQTT
 
 The same topics, messages and Home Assistant discovery on both. The client differs: `mqtt_as` on the Pico (it needs
-MicroPython's `network`), and `paho-mqtt` on CPython, behind the same small interface (connect with a will,
-publish, subscribe, reconnect, connection state).
+MicroPython's `network`), and on CPython the base's own small asyncio client (`mqttclient.py`, MQTT 3.1.1, about 200
+lines), behind the same few calls (connect with a will, publish, subscribe, the next message, close); `base.mqtt`
+reconnects. paho-mqtt was the first thought, but it isn't in ApplPi OS's image, runs its own thread, and is far
+bigger than what's needed.
 
 ### How products use it
 
