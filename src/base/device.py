@@ -11,6 +11,10 @@ A product is a module (product.py) with:
   routes(app, device)           optional: its own API routes
   applied(device, changed)      optional: settings changed ((section, key) pairs) that apply at once
   tasks(device)                 optional: coroutines to run alongside
+  state(device)                 optional, not lights: its state for MQTT's state topic (call device.state_changed())
+  set(device, command)          optional, not lights: a command from MQTT's set topic (a dict); returns an error or None
+  HA_ENTITIES, ha_entity(device, key, topics)   optional: its own Home Assistant entities, as (component, key), and
+                                each one's discovery config (unique_id, availability and device are added)
   www                           optional: the folder with its index.html (default: www beside product.py)
 
 main.py starts it: run(product).
@@ -82,6 +86,11 @@ class Device:
             self.mqtt.alert_switched()
         if hasattr(self.product, 'applied'):
             self.product.applied(self, changed)
+
+    def state_changed(self):
+        """The product's state changed: MQTT publishes it."""
+        if self.mqtt is not None:
+            self.mqtt.state_changed()
 
     def reset(self):
         Log.warn(TAG, 'Resetting the settings')

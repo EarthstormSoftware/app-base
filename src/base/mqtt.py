@@ -14,8 +14,12 @@ The topics hang off mqtt.topic_base ({name} is the device name) and the discover
                        "OffMs", "Brightness"} for other than the alert settings; {"Active": false} ends one
   <base>/alert/set     lights: {"Enabled": true | false} switches alerts on or off
   <base>/alert/state   retained, lights: {"Enabled", "Active"}
+  <base>/state         retained, other products: the product's state(device), when it calls device.state_changed()
+  <base>/set           other products: commands, as a JSON object, for the product's set(device, command)
   <ha_prefix>/light/<name>/config, <ha_prefix>/sensor/<name>/<key>/config, and for alerts .../switch/<name>/alerts
                        and .../button/<name>/alert: retained discovery (if it's on)
+  <ha_prefix>/<component>/<name>/<key>/config   the same for a product's own entities: its HA_ENTITIES, as
+                       (component, key), each described by its ha_entity(device, key, topics)
 
 Groups (mqtt.group): lights with the same group name follow each other through a retained topic,
 earthstorm/group/<group>, carrying {"State", "Mode", "ModeParameters", "Brightness", "From"}. Each member publishes its
@@ -202,10 +206,15 @@ def watch_topic_error(value):
     return None
 
 
-def topics(name, base=DEFAULT_TOPIC_BASE, ha_prefix=DEFAULT_HA_PREFIX, light=False, sensors=(), group=''):
-    """The device's topics by role."""
+def topics(name, base=DEFAULT_TOPIC_BASE, ha_prefix=DEFAULT_HA_PREFIX, light=False, sensors=(), group='',
+           product_state=False, entities=()):
+    """The device's topics by role. entities: a product's Home Assistant entities, as (component, key)."""
     base = base.replace('{name}', name)
     t = {'status': base + '/status', 'info': base + '/info'}
+    if product_state:
+        t.update({'state': base + '/state', 'set': base + '/set'})
+    for component, key in entities:
+        t['ha_' + key] = ha_prefix + '/' + component + '/' + name + '/' + key + '/config'
     if light:
         t.update({
             'state': base + '/state',
@@ -230,7 +239,8 @@ def topics(name, base=DEFAULT_TOPIC_BASE, ha_prefix=DEFAULT_HA_PREFIX, light=Fal
 
 def retained(t):
     """The topics in t that the device publishes retained."""
-    return sorted(topic for role, topic in t.items() if role not in ('control', 'ha_set', 'alert', 'alert_set', 'group', 'group_old'))
+    return sorted(topic for role, topic in t.items()
+                  if role not in ('control', 'ha_set', 'alert', 'alert_set', 'group', 'group_old', 'set'))
 
 
 # Payloads
@@ -352,6 +362,22 @@ def topic_matches(pattern, topic):
     return len(parts) == len(wanted)
 
 
+def ha_entity_payload(name, t, product, key, config):
+    """A product's own entity: its config, with what every entity has (read from the state topic unless it says)."""
+    full = {'unique_id': name + '_' + key, 'state_topic': t.get('state'), 'availability_topic': t['status'],
+            'device': _device(name, product)}
+    full.update(config)
+    return json.dumps(full)
+
+
+def parse_set(text):
+    """A command on the set topic: a JSON object. Raises ValueError."""
+    command = json.loads(text)
+    if not isinstance(command, dict) or not command:
+        raise ValueError('a command must be a JSON object, such as {"enabled": false}')
+    return command
+
+
 def ha_sensor_payload(name, t, product, key):
     for k, title, extra in SENSORS:
         if k == key:
@@ -456,8 +482,12 @@ class Mqtt:
         info = device.info()
         self.sensors = tuple(key for key, _, _ in SENSORS if info.get(key) is not None)
         self.group = s.get('mqtt', 'group') if self.light is not None else ''
+        product = device.product
+        self.product_state = self.light is None and hasattr(product, 'state')
+        self.entities = getattr(product, 'HA_ENTITIES', ())
         self.topics = topics(self.name, s.get('mqtt', 'topic_base'), s.get('mqtt', 'ha_prefix'),
-                             light=self.light is not None, sensors=self.sensors, group=self.group)
+                             light=self.light is not None, sensors=self.sensors, group=self.group,
+                             product_state=self.product_state, entities=self.entities)
         self.alert_topic = s.get('mqtt', 'alert_topic') if self.light is not None else ''
         self._watched_before = False  # whether the watched topic last said "now", so one that stays "now" rings once
         self._changed = asyncio.Event()
@@ -482,7 +512,7 @@ class Mqtt:
         while True:
             client = self.device.platform.mqtt_client(
                 client_id=self.name, host=host, port=port, user=s.get('mqtt', 'user'),
-                password=s.get('mqtt', 'password'), will=(self.topics['status'], OFFLINE, True))
+                password=s.reveal('mqtt', 'password'), will=(self.topics['status'], OFFLINE, True))
             tasks = []
             try:
                 await client.connect()
@@ -523,6 +553,12 @@ class Mqtt:
                                   ('ha_alerts', lambda: ha_alerts_payload(self.name, t, product)),
                                   ('ha_alert', lambda: ha_alert_payload(self.name, t, product))):
                 await client.publish(t[role], payload() if self.ha else '', retain=True)
+        if self.product_state:
+            await client.subscribe(t['set'])
+        for component, key in self.entities:
+            await client.publish(t['ha_' + key], ha_entity_payload(
+                self.name, t, self.device.product, key, self.device.product.ha_entity(self.device, key, t))
+                if self.ha else '', retain=True)
         for topic in self._product_topics():
             await client.subscribe(topic)
         if self.group:
@@ -592,7 +628,21 @@ class Mqtt:
         except OSError:
             client.close()
 
+    def state_changed(self):
+        """The product's state changed (or its settings): publish it."""
+        self._changed.set()
+
     async def _publish_state(self, client):
+        if self.product_state:
+            try:
+                while True:
+                    await self._changed.wait()
+                    self._changed.clear()
+                    await client.publish(self.topics['state'], json.dumps(self.device.product.state(self.device)),
+                                         retain=True)
+            except OSError:
+                client.close()
+            return
         if self.light is None:
             return
         try:
@@ -624,6 +674,11 @@ class Mqtt:
     def _handle(self, topic, text, retained):
         """Acts on a message; returns why it couldn't, or None. Raises ValueError for one it can't read."""
         t, light = self.topics, self.light
+        if topic == t.get('set'):
+            if retained:  # it would be done again on every connection, undoing later changes
+                return 'commands should not be retained'
+            return self.device.product.set(self.device, parse_set(text)) if hasattr(self.device.product, 'set') \
+                else None
         if topic == t.get('control'):
             return light.set(**parse_control(json.loads(text)))
         if topic == t.get('ha_set'):
