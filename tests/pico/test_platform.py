@@ -10,6 +10,7 @@ from base.passwords import check_password, hash_password
 from base.pico import setup
 from base.pico.bootsel import HOLD_MS, Bootsel
 from base.pico.crypto import encrypt_password
+from base.pico import wlan as wlan_module
 from base.pico.wlan import Wlan
 from base.settings import BASE_SETTINGS, Settings, merge
 
@@ -140,7 +141,7 @@ def test_how_long_setup_mode_runs_comes_from_the_settings(board):
 def test_the_setup_page_lists_networks_strongest_first_and_escapes_them():
     scan = [(b'Weak', b'', 1, -80, 3, 0), (b'<Strong>', b'', 6, -40, 3, 0), (b'Weak', b'', 11, -60, 3, 0),
             (b'', b'', 1, -30, 3, 1)]
-    networks = setup.strongest(scan)
+    networks = wlan_module.strongest(scan)
     assert networks == ['<Strong>', 'Weak']
     page = setup.form(Product, networks, 'Hall', error='<b>', ssid='Weak')
     assert '&lt;Strong&gt;' in page and '<Strong>' not in page
@@ -219,3 +220,82 @@ def test_letting_go_of_bootsel_starts_again_and_puts_the_led_back():
     assert led.state == (True, False, 0)
     assert not button.update(True, HOLD_MS)
     assert not button.update(True, 2 * HOLD_MS - 1)
+
+
+def test_the_fallback_waits_six_hours_by_default_and_up_to_a_day(board):
+    s = settings(board)
+    assert s.get('wlan', 'fallback_after_min') == 360
+    assert s.update({'wlan': {'fallback_after_min': 1440}})[0] is None
+    assert s.update({'wlan': {'fallback_after_min': 1441}})[0] is not None
+
+
+def test_a_new_network_from_the_page_is_kept_on_trial_with_the_one_before(board):
+    pico._save_setup('Hall', 'Home', 'old password')
+    (board / 'wifi_trial').unlink()  # the network from setup mode has connected
+    before = (board / 'provisioning.json').read_text()
+    assert pico.change_wifi('Upstairs', 'new password') is None
+    assert pico._wifi() == ('Upstairs', 'new password')
+    assert read(board, 'provisioning.json')['device_name'] == 'Hall'  # the name stays
+    assert (board / 'provisioning.prev.json').read_text() == before
+    assert pico._trial() == 'page'
+
+
+@pytest.mark.parametrize('ssid, password', [('', 'password'), ('x' * 33, 'password'), ('Home', 'short'),
+                                            ('Home', 'x' * 65), (None, 'password')])
+def test_a_new_network_is_checked(board, ssid, password):
+    assert pico.change_wifi(ssid, password) is not None
+    assert not (board / 'wifi_trial').exists()
+
+
+def test_an_open_network_needs_no_password(board):
+    assert pico.change_wifi('Cafe', '') is None
+
+
+def test_a_new_network_that_doesnt_connect_gives_way_to_the_one_before(board):
+    pico._save_setup('Hall', 'Home', 'old password')
+    (board / 'wifi_trial').unlink()
+    pico.change_wifi('Upstairs', 'wrong password')
+    with pytest.raises(SystemExit):  # it restarts
+        pico._give_up()
+    assert pico._wifi() == ('Home', 'old password')
+    assert pico._trial() is None and not (board / 'provisioning.prev.json').exists()
+
+
+def test_two_changes_before_one_connects_go_back_to_the_one_that_worked(board):
+    pico._save_setup('Hall', 'Home', 'old password')
+    (board / 'wifi_trial').unlink()
+    pico.change_wifi('Upstairs', 'wrong password')
+    pico.change_wifi('Downstairs', 'wrong too')
+    with pytest.raises(SystemExit):
+        pico._give_up()
+    assert pico._wifi() == ('Home', 'old password')
+
+
+def test_a_hand_written_network_comes_back_when_the_new_one_fails(board):
+    write(board, 'config.json', {'wlan': {'ssid': 'Home', 'password': 'pw'}})
+    pico.change_wifi('Upstairs', 'wrong password')
+    with pytest.raises(SystemExit):
+        pico._give_up()
+    assert pico._wifi() == ('Home', 'pw')
+
+
+def test_a_network_from_setup_mode_that_doesnt_connect_starts_setup_mode_again(board):
+    pico._save_setup('Hall', 'Home', 'mistyped')
+    assert pico._trial() == 'setup'
+    with pytest.raises(SystemExit):
+        pico._give_up()
+    assert (board / 'setup_request').exists()
+    assert pico._wifi() == ('Home', 'mistyped')  # kept, to be put right there
+
+
+def test_a_network_that_connects_ends_its_trial(board):
+    pico._save_setup('Hall', 'Home', 'pw123456')
+    pico.change_wifi('Upstairs', 'pw123456')
+    pico._proven()
+    assert pico._trial() is None and not (board / 'provisioning.prev.json').exists()
+
+
+def test_a_new_network_has_five_minutes_whatever_the_fallback_says():
+    w = Wlan('Home', 'pw', Wifi(fallback=False), Led(), lambda: None, 'hall', trial=True)
+    assert not w.fallback_due(w.started + wlan_module.TRIAL_S - 1)
+    assert w.fallback_due(w.started + wlan_module.TRIAL_S)

@@ -136,8 +136,13 @@ Decided (2026-10-28):
 - **The same topics and Home Assistant entities**, so Home Assistant keeps its history: `<base>/state` and `<base>/set`
   for a product that isn't a light, through new hooks (`state`, `set`, `ha_entities`), and the unique ids as now.
 - **The Wi-Fi fallback** becomes three settings in `wlan` (`fallback`, `fallback_after_min`, `fallback_for_min`), as
-  ApplPi OS's `wifi_fallback`. The default is as now: on, after about 5 failed attempts (taken as 5 minutes), for
+  ApplPi OS's `wifi_fallback`: on, after 360 minutes (up to 1440: a router can be slow back after a power cut), for
   10 minutes. The page shows them through `/api/wifi`, as on a Pi.
+- **Changing Wi-Fi from the page** (asked for on 2026-10-28: setup mode shouldn't be the only way): on a Pico,
+  `POST /api/wifi` with a network restarts onto it, on trial. If it doesn't connect within 5 minutes, the network
+  before goes back. A network from setup mode is on the same trial, and goes back to setup mode, so a mistyped
+  password doesn't wait for the fallback's hours. On a Pi it needs the OS to take a new network from the app, so it's
+  ApplPi OS's to add (an `app-request wifi`); until then a Pi's page uses setup mode for it.
 - **Setup mode from the page**: `/api/setup-mode` and `/api/factory-reset` as on a Pi, and the name through
   `/api/name` (a Pico's name is its own to change, `name_editable`).
 - **The clock**: on a Pico, its settings (`device.utc_offset_min`, `dst`, `ntp_server`) are ordinary settings on the
