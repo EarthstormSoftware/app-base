@@ -23,6 +23,8 @@ looked up as `hallway.local`, or an IP address).
 When it fails, read the device's answer before retrying:
 - `not a firmware file` for `*.gz`: the device's updater predates gzipped web files. Send one update without them
   first (the code, with the plain `www` files from `src/` in their place), then the full one.
+- `HTTP 500 ... ValueError` on begin: an early 2.0 can't read a manifest over 1 KB (about 8 files). Send
+  `base/pico/web.mpy` and `base/pico/ota.mpy` alone first; after that it takes any size (hallway, 2026-10-28).
 - `not enough space`: the update needs its files in whole 4 KB blocks, its folders (two blocks each) and 16 KB,
   while the old version is still there. Don't split it into batches that leave the new files beside the old ones: that fills the flash (it happened on a 1.4.4
   PlasmaStick). Use USB (`/pico-usb`) instead.
