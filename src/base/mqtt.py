@@ -133,10 +133,16 @@ MQTT_SETTINGS = {
         'topic_base': Setting(DEFAULT_TOPIC_BASE, topic_base_error, restart=True),
         'ha_discovery': Setting(False, is_bool, restart=True),
         'ha_prefix': Setting(DEFAULT_HA_PREFIX, ha_prefix_error, restart=True),
-        # Lights: a group to follow ('' for none), and whether to follow its brightness
+    },
+}
+
+# A light's, next to those
+LIGHT_MQTT_SETTINGS = {
+    'mqtt': {
+        # A group to follow ('' for none), and whether to follow its brightness
         'group': Setting('', lambda value: group_error(value), restart=True),
         'group_brightness': Setting(True, is_bool, restart=True),
-        # Lights: another device's topic whose messages start an alert ('' for none)
+        # Another device's topic whose messages start an alert ('' for none)
         'alert_topic': Setting('', lambda value: watch_topic_error(value), restart=True),
     },
 }
@@ -479,8 +485,12 @@ class Mqtt:
         self.name = device.platform.device_name()
         self.ha = s.get('mqtt', 'ha_discovery')
         self.light = device.light
-        info = device.info()
-        self.sensors = tuple(key for key, _, _ in SENSORS if info.get(key) is not None)
+        # The health figures the platform has: as it says (a Pico's Wi-Fi figures are empty until it's connected), or
+        # those it gives now
+        self.sensors = getattr(device.platform, 'SENSORS', None)
+        if self.sensors is None:
+            info = device.info()
+            self.sensors = tuple(key for key, _, _ in SENSORS if info.get(key) is not None)
         self.group = s.get('mqtt', 'group') if self.light is not None else ''
         product = device.product
         self.product_state = self.light is None and hasattr(product, 'state')

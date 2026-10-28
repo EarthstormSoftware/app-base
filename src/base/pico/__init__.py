@@ -22,6 +22,8 @@ from base.settings import Setting, is_bool, is_int, is_one_of, is_text
 TAG = 'PICO'
 NAME_EDITABLE = True
 PORT = 80
+# The health figures Home Assistant shows (rssi and ip are empty until Wi-Fi connects, but are always announced)
+SENSORS = ('rssi', 'uptime_s', 'mem_free', 'ip')
 ROOT = '/'  # tests point it elsewhere
 CONFIG = 'config.json'
 PROVISIONING = 'provisioning.json'
@@ -204,6 +206,7 @@ def health():
         'mem_alloc': _mem_alloc(),
         # Setup mode, the Wi-Fi fallback and a factory reset, from the page (as an ApplPi OS with setup mode)
         'setup': True,
+        'setup_ssid': product.SETUP_SSID,
     }
 
 
@@ -429,6 +432,7 @@ def run(product_module):
     from base.device import Device
     device = Device(product, sys.modules[__name__])
     Log.level = device.settings.get('device', 'log_level')
+    Log.info(TAG, 'Name: {}'.format(device_name()))
     from base.pico.wlan import Wlan
     wlan = Wlan(ssid, password, device.settings, led, setup_mode, device_name())
     try:

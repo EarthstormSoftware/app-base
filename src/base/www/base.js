@@ -234,8 +234,11 @@ var Base = (function () {
           if (!confirm(b.dataset.confirm)) return;
           api(a[1], { confirm: true }).then(function () {
             restarting = true;
-            say(b.dataset.msg, 'Restarting into setup mode. Join the ApplPi-SETUP Wi-Fi and open http://192.168.4.1 ' +
-              '(on Ethernet: https://' + (info ? info.name : '<name>') + '.local/), in about a minute.', true);
+            // A Pico gives its own hotspot's name (and has no Ethernet)
+            say(b.dataset.msg, info && info.setup_ssid
+              ? 'Restarting into setup mode. Join the ' + info.setup_ssid + ' Wi-Fi and open http://192.168.4.1.'
+              : 'Restarting into setup mode. Join the ApplPi-SETUP Wi-Fi and open http://192.168.4.1 ' +
+                '(on Ethernet: https://' + (info ? info.name : '<name>') + '.local/), in about a minute.', true);
           }).catch(function (e) { say(b.dataset.msg, 'Not done: ' + e.message); });
         });
       });
@@ -280,8 +283,11 @@ var Base = (function () {
     // What the OS does for an ApplPi app: shown where it takes the app's requests
     var requests = !!(i.os && i.os.requests);
     document.querySelectorAll('[data-os-requests]').forEach(function (n) { n.hidden = !requests; });
-    var setup = !!(i.os && i.os.setup);
+    // Setup mode: the OS's on a Pi (i.os.setup), the device's own on a Pico (i.setup)
+    var setup = !!(i.setup || (i.os && i.os.setup));
     document.querySelectorAll('[data-os-setup]').forEach(function (n) { n.hidden = !setup; });
+    // A name the device changes itself (a Pico's), rather than the OS's
+    document.querySelectorAll('[data-name-editable]').forEach(function (n) { n.hidden = !i.name_editable; });
     if (el('update_note')) {
       var u = i.update;
       el('update_note').textContent = !u ? '' : (u.success ? '' : 'The last update failed: ') + u.message +
@@ -609,7 +615,7 @@ var Base = (function () {
     if (!el('wifi_save')) return;
     var loaded = false;
     infoListeners.push(function (i) {
-      if (loaded || !(i.os && i.os.setup)) return;
+      if (loaded || !(i.setup || (i.os && i.os.setup))) return;
       loaded = true;
       api('/api/wifi').then(function (w) {
         el('wifi_fallback_enabled').checked = w.fallback.enabled;
@@ -623,8 +629,26 @@ var Base = (function () {
         enabled: el('wifi_fallback_enabled').checked,
         after_minutes: parseInt(el('wifi_fallback_after').value, 10),
         for_minutes: parseInt(el('wifi_fallback_for').value, 10)
-      } }).then(function () { say('wifi_msg', 'Saved: from the Pi’s next start.', true); })
+      } }).then(function () { say('wifi_msg', 'Saved: from the next start.', true); })
         .catch(function (e) { say('wifi_msg', 'Not saved: ' + e.message); });
+    });
+  }
+
+  // Renaming a device whose name is its own (a Pico's): the field device_name, saved by rename_save (POST /api/name),
+  // from the next start
+  function rename() {
+    if (!el('rename_save')) return;
+    var filled = false;
+    infoListeners.push(function (i) {
+      if (filled || !i.name_editable) return;
+      filled = true;
+      el('device_name').value = i.name;
+    });
+    el('rename_save').addEventListener('click', function () {
+      say('rename_msg', 'Saving…', true);
+      api('/api/name', { name: el('device_name').value.trim() }).then(function () {
+        say('rename_msg', 'Saved: restart for it to be used (the page is then at the new name).', true);
+      }).catch(function (e) { say('rename_msg', 'Not saved: ' + e.message); });
     });
   }
 
@@ -633,6 +657,7 @@ var Base = (function () {
     settingsForms();
     actions();
     wifi();
+    rename();
     setInterval(function () { if (!document.hidden) refresh(); }, 3000);
     document.addEventListener('visibilitychange', function () { if (!document.hidden) refresh(); });
     // The settings load after the first /api/info, which brings the modes the Default Mode list needs

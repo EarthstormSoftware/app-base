@@ -32,13 +32,14 @@ class Device:
         self.product = product
         self.platform = platform
         is_light = hasattr(product, 'LIGHT_MODES')
-        from base.mqtt import MQTT_SETTINGS
+        from base.mqtt import MQTT_SETTINGS, LIGHT_MQTT_SETTINGS
         # The platform's after the base's (a Pico's MQTT password replaces the base's), and the product's last
         schemas = [BASE_SETTINGS, MQTT_SETTINGS, getattr(platform, 'SETTINGS', {}), product.SETTINGS]
         if is_light:
             from base.light import LIGHT_SETTINGS
             from base.schedule import schedule_settings
-            schemas[1:1] = [LIGHT_SETTINGS, schedule_settings(('Colour',) + tuple(product.LIGHT_MODES))]
+            schemas[1:1] = [LIGHT_SETTINGS, schedule_settings(('Colour',) + tuple(product.LIGHT_MODES)),
+                            LIGHT_MQTT_SETTINGS]
         self.settings = Settings(platform.state_path('config.json'), merge(*schemas),
                                  codec=getattr(platform, 'Codec', None))
         Log.level = self.settings.get('device', 'log_level')
@@ -128,6 +129,8 @@ class Device:
             tasks.append(asyncio.create_task(schedule.run(self)))
         if self.mqtt.enabled:
             tasks.append(asyncio.create_task(self.mqtt.run()))
+        else:
+            Log.info(TAG, 'MQTT is off (no broker, or mqtt.enabled is false)')
         if hasattr(self.platform, 'watchdog'):
             tasks.append(asyncio.create_task(self.platform.watchdog()))
         Log.info(TAG, '{} {} on port {}'.format(self.product.NAME, self.product.VERSION, port))
