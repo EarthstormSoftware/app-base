@@ -28,7 +28,7 @@ When it fails, read the device's answer before retrying:
   PlasmaStick). Use USB (`/pico-usb`) instead.
 - A PlasmaStick on 1.4.2 (to 1.4.4) can't take 2.0: it reads each file whole, can't read a manifest over 1 KB,
   and its flash (640 KB, every file at least a 4 KB block) has no room for 1.4 and 2.0 side by side. Rehearsed on
-  porch on 2026-10-28; three steps, each `wifi_update.py --host $PicoIp --files buildiles.json ...`:
+  porch on 2026-10-28; three steps, each `wifi_update.py --host $PicoIp --files build\files.json ...`:
   1. From the `bridge-1.4.3` branch (`deploy.ps1 -BuildOnly`): `--only ota.mpy,httpserver.mpy,version.mpy` takes
      it to 1.4.5. 1.4.2 may drop the connection on the first try (its heap); try once more.
   2. Same build: `--only www/index.html.gz --remove www/index.html` (frees about 40 KB for step 3).
