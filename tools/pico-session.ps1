@@ -1,7 +1,8 @@
 # Gets a Pico product's scripts ready to talk to one device. Dot-source it, so its variables stay:
 #   . ..\app-base\tools\pico-session.ps1 -Product plasmastick -Device porch
 # Sets the product's password variables (PLASMASTICK_* or PICOPIR_*) for this session from the Windows user
-# variables, the product's own if set, else the other product's (devices set up alike share them), and $PicoIp, the
+# variables: the device's own (PLASMASTICK_WEB_PASSWORD_<DEVICE>) if set, else the product's, else the other product's
+# (devices set up alike share them), and $PicoIp, the
 # device's IPv4 address: Python's urllib fails on the IPv6 address a .local name gives first. Nothing is printed but
 # the product's folder and whether each password was found: never the passwords or the address.
 param(
@@ -15,7 +16,12 @@ $PicoRepo = Join-Path (Split-Path -Parent (Split-Path -Parent $PSScriptRoot)) $f
 $prefix = $prefixes[$Product]
 
 foreach ($kind in 'WEB', 'MQTT') {
-    $value = [Environment]::GetEnvironmentVariable("${prefix}_${kind}_PASSWORD", 'User')
+    # A device's own first (PLASMASTICK_WEB_PASSWORD_PORCH, say), then the product's, then the other's
+    $deviceKey = ($Device -replace '\.local$', '' -replace '[^A-Za-z0-9]', '_').ToUpper()
+    $value = [Environment]::GetEnvironmentVariable("${prefix}_${kind}_PASSWORD_${deviceKey}", 'User')
+    if (-not $value) {
+        $value = [Environment]::GetEnvironmentVariable("${prefix}_${kind}_PASSWORD", 'User')
+    }
     if (-not $value) {
         foreach ($other in $prefixes.Values) {
             $value = [Environment]::GetEnvironmentVariable("${other}_${kind}_PASSWORD", 'User')
