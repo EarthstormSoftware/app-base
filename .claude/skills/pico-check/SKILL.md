@@ -8,12 +8,12 @@ Check a Pico device. Arguments: $ARGUMENTS (the product, the device, and optiona
 
 1. In one PowerShell call, dot-source
    `E:\Projects\EarthstormSoftware\app-base\tools\pico-session.ps1 -Product <product> -Device <device>`, then run
-   `py "$PicoRepo\scripts\smoke_test.py" --host $PicoIp` (add `--soak <seconds>` if given) in the background, every
-   line passed through `ForEach-Object { "$_".Replace($PicoIp, '<ip>') }`. Wait for the notification.
+   `py "$PicoRepo\scripts\smoke_test.py" --host $PicoIp` (add `--soak <seconds>` if given) in the background,
+   with `*>&1` and every line passed through `ForEach-Object { "$_".Replace($PicoIp, '<ip>') }`. Wait for the notification.
 2. Report the PASS/FAIL/SKIP counts and quote each FAIL. Known baseline: a PlasmaStick in an MQTT group with other
    lights fails the brightness checks, because the group sets it back. Say so rather than calling it a regression.
 3. Report the version, uptime and `mem_free` from `/api/info`. Compare the free memory with the last figure in the
-   project's notes (about 66 KB for Pico PIR 2.0 on hallway); a drop of more than 5 KB needs a reason.
+   project's notes (about 66 KB for Pico PIR 2.0 on hallway, 33 KB for PlasmaStick 2.0 on porch); a drop of more than 5 KB needs a reason.
 4. During a soak, an uptime that goes down means a restart: say when, and suggest `/pico-usb <product> log` to find
    out why.
 
