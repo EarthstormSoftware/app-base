@@ -9,6 +9,8 @@ A product is a module (product.py) with:
   output(device) (lights only)  its LEDs: an object with count and show(frame), or one that draws itself (paint,
                                 clear and strip: see Light._run_direct)
   MIN_LEVEL (lights only)       optional: the share of full output that 1% brightness draws (default 0.06)
+  MODE_ORDER (lights only)      optional: the modes' order, after Colour (a MicroPython dict may not keep LIGHT_MODES')
+  setup_held()                  optional, on a Pico: True to start setup mode at power-on (a button held, say)
   Codec                         optional: load(stored) and dump(values) for its part of a settings file laid out
                                 its own way (its firmware before the base), after the platform's
   info(device)                  optional: its own fields for /api/info
@@ -101,7 +103,7 @@ class Device:
             info['light'] = {
                 'state': light.on,
                 'mode': light.mode,
-                'parameters': light.parameters,
+                'parameters': light.state()['ModeParameters'],  # with an effect's defaults, as MQTT has them
                 'brightness': light.brightness,
                 'modes': light.modes,
                 'alert': {'enabled': self.settings.get('alert', 'enabled'), 'active': light.alerting},

@@ -96,7 +96,8 @@ class Light:
         self.output = output
         self.settings = settings
         self.effects = modes or {}
-        self.modes = ('Colour',) + tuple(self.effects)
+        # In the product's order (MODE_ORDER), where it gives one: a MicroPython dict may not keep it
+        self.modes = ('Colour',) + tuple(getattr(product, 'MODE_ORDER', None) or self.effects)
         self.product = product
         self.min_level = min_level
         self.on = False
@@ -170,6 +171,8 @@ class Light:
             self.parameters.update(parameters)
             if self._effect is not None and hasattr(self._effect, 'update'):
                 self._effect.update(self.parameters)
+            elif any(key in parameters for key in getattr(self.effects.get(self.mode), 'remakes', ())):
+                self._effect = None  # made again with them (an effect class's remakes, such as a style)
         if self.mode == 'Colour':
             self._fade_colour(rgb(self.parameters['Colour']), fade)
         if brightness is not None:
