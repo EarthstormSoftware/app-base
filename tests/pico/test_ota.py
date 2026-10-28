@@ -78,7 +78,8 @@ def boot_once():
 
 
 @pytest.mark.parametrize('path', ['app.mpy', 'api.mpy', 'lib/microdot.mpy', 'lib/mqtt_as/__init__.mpy', 'www/index.html',
-                                  'base/mqtt.mpy', 'base/www/base.js', 'base/www/base.css', 'base/pico/wlan.mpy'])
+                                  'base/mqtt.mpy', 'base/www/base.js', 'base/www/base.css', 'base/pico/wlan.mpy',
+                                  'www/index.html.gz', 'base/www/base.js.gz'])
 def test_firmware_paths_are_allowed(path):
     assert ota.check_path(path) is None
 
