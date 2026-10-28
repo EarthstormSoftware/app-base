@@ -126,3 +126,21 @@ def test_group_and_watcher_code_is_loaded_only_when_used(tmp_path, light, group,
     m = lightmqtt.LightMqtt(Device(settings, light))
     assert ('base.lightgroup' in sys.modules) == bool(group) == (m._group is not None)
     assert ('base.lightwatch' in sys.modules) == bool(alert_topic) == (m._watch is not None)
+
+
+def test_a_lights_own_group_change_coming_back_is_ignored_but_not_on_joining(tmp_path, light):
+    from base.settings import BASE_SETTINGS
+    settings = Settings(str(tmp_path / 'mqtt.json'), merge(BASE_SETTINGS, mqtt.MQTT_SETTINGS,
+                                                            lightmqtt.LIGHT_MQTT_SETTINGS, LIGHT_SETTINGS))
+    assert settings.update({'mqtt': {'group': 'upstairs'}})[0] is None
+    m = lightmqtt.LightMqtt(Device(settings, light))
+    m.topics = m._topics()
+    old = dict(state(mode='Colour', parameters={'Colour': '#0000ff'}), From='lamp')  # this light's, from before
+    for topic in (m.topics['group'], m.topics['group_old']):
+        assert m._handle(topic, json.dumps(old), False) is None
+        assert light.parameters['Colour'].lower() == '#ff0000'  # the newer change stands
+    m._handle(m.topics['group'], json.dumps(old), True)  # retained: the group's state on joining
+    assert light.parameters['Colour'].lower() == '#0000ff'
+    other = dict(state(mode='Colour', parameters={'Colour': '#00ff00'}), From='other')
+    m._handle(m.topics['group'], json.dumps(other), False)
+    assert light.parameters['Colour'].lower() == '#00ff00'
