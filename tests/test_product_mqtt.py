@@ -3,6 +3,7 @@ import json
 
 import pytest
 
+from base import discovery
 from base import mqtt
 from base.settings import Settings, merge, BASE_SETTINGS
 
@@ -66,7 +67,7 @@ def test_a_products_topics_are_as_pico_pir_had_them():
 
 def test_an_entity_gets_what_every_entity_has():
     t = mqtt.topics('hall', product_state=True, entities=Sensor.HA_ENTITIES)
-    config = json.loads(mqtt.ha_entity_payload('hall', t, Sensor, 'motion', {'name': 'Motion'}))
+    config = json.loads(discovery.entity('hall', t, Sensor, 'motion', {'name': 'Motion'}))
     assert config['unique_id'] == 'hall_motion'
     assert config['state_topic'] == t['state']
     assert config['availability_topic'] == t['status']
@@ -88,3 +89,32 @@ def test_commands_go_to_the_product_unless_retained(tmp_path):
 def test_a_command_must_be_an_object(text):
     with pytest.raises(ValueError):
         mqtt.parse_set(text)
+
+
+class Client:
+    def __init__(self):
+        self.published, self.subscribed = {}, []
+
+    async def publish(self, topic, message, retain=False):
+        self.published[topic] = message
+
+    async def subscribe(self, topic):
+        self.subscribed.append(topic)
+
+
+def test_connecting_announces_the_entities_then_lets_the_discovery_code_go(tmp_path):
+    import asyncio
+    import sys
+    device = Device(tmp_path, Sensor())
+    device.platform = type('P', (Platform,), {'state_path': staticmethod(lambda name: str(tmp_path / name))})
+    device.settings.update({'mqtt': {'ha_discovery': True}})
+    m = mqtt.Mqtt(device)
+    client = Client()
+    asyncio.run(m._up(client))
+    t = m.topics
+    assert json.loads(client.published[t['ha_motion']])['unique_id'] == 'hall_motion'
+    assert json.loads(client.published[t['ha_sensor_uptime_s']])['state_topic'] == t['info']
+    assert t['set'] in client.subscribed
+    assert 'base.discovery' not in sys.modules
+    import base
+    assert not hasattr(base, 'discovery')
