@@ -14,17 +14,21 @@ def os_request(tmp_path, monkeypatch):
         path.write_text(text, encoding='utf-8')
         monkeypatch.setattr(pi, 'APP_REQUEST', str(path))
         monkeypatch.setattr(pi, '_setup', None)
+        monkeypatch.setattr(pi, '_wifi', None)
 
     asked = []
+    given_in = []
 
-    def request(*args):
+    def request(*args, given=None):
         asked.append(list(args))
+        given_in.append(given)
         if args == ('settings',):
             return json.dumps({'time_zone': 'Europe/London', 'ntp': '',
                                'wifi_fallback': {'enabled': True, 'after_minutes': 5, 'for_minutes': 10}})
         return ''
     monkeypatch.setattr(pi, '_request', request)
     given.asked = asked
+    given.stdin = given_in
     return given
 
 
@@ -57,3 +61,19 @@ def test_setup_mode_and_factory_reset_are_asked_of_the_os(os_request):
     pi.setup_mode()
     pi.factory_reset()
     assert os_request.asked == [['setup'], ['factory-reset']]
+
+
+def test_a_new_wifi_network_goes_to_the_os_with_its_password_on_stdin(os_request):
+    os_request('...  app-request wifi <ssid>  app-request networks  app-request factory-reset  ...')
+    assert pi.os_wifi() is True
+    pi.change_wifi('Upstairs', 'secret password')
+    assert os_request.asked[-1] == ['wifi', 'Upstairs']  # not the password: it would show in the process list
+    assert os_request.stdin[-1] == 'secret password\n'
+
+
+def test_wifi_changes_are_offered_only_when_the_os_takes_them(os_request):
+    os_request('...  app-request factory-reset  ...')
+    assert pi.os_wifi() is False
+    with pytest.raises(pi.RequestError):
+        pi.change_wifi('Upstairs', 'secret password')
+    assert os_request.asked == []
