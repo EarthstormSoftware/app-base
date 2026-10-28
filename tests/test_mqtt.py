@@ -2,7 +2,7 @@ import json
 
 import pytest
 
-from base import mqtt
+from base import lightmqtt, mqtt
 
 
 class Product:
@@ -63,17 +63,17 @@ def test_info_has_the_figures_the_platform_has():
 
 def test_home_assistant_state_in_colour_and_white():
     state = {'State': True, 'Mode': 'Colour', 'ModeParameters': {'Colour': '#ff8000'}, 'Brightness': 50}
-    payload = json.loads(mqtt.ha_state_payload(state))
+    payload = json.loads(lightmqtt.ha_state_payload(state))
     assert payload == {'state': 'ON', 'color_mode': 'rgb', 'effect': 'Colour', 'brightness': 50,
                        'color': {'r': 255, 'g': 128, 'b': 0}}
     state['ModeParameters'] = {'Colour': '#ffb46b', 'Kelvin': 2700}
-    payload = json.loads(mqtt.ha_state_payload(state))
+    payload = json.loads(lightmqtt.ha_state_payload(state))
     assert payload['color_mode'] == 'color_temp' and payload['color_temp'] == 370
 
 
 def test_discovery_describes_the_light_and_its_device():
     t = mqtt.topics('lamp', light=True)
-    config = json.loads(mqtt.ha_light_payload('lamp', t, Product, ('Colour', 'Rainbows')))
+    config = json.loads(lightmqtt.ha_light_payload('lamp', t, Product, ('Colour', 'Rainbows')))
     assert config['command_topic'] == t['ha_set']
     assert config['effect_list'] == ['Colour', 'Rainbows']
     assert config['device'] == {'identifiers': ['lamp'], 'name': 'lamp', 'manufacturer': 'Earthstorm Software',
@@ -81,10 +81,10 @@ def test_discovery_describes_the_light_and_its_device():
 
 
 def test_control_messages():
-    assert mqtt.parse_control({'MessageType': 'StateChange', 'Parameters': {'State': False}}) == {'on': False}
-    assert mqtt.parse_control({'MessageType': 'BrightnessChange', 'Parameters': {'Brightness': 20}}) == \
+    assert lightmqtt.parse_control({'MessageType': 'StateChange', 'Parameters': {'State': False}}) == {'on': False}
+    assert lightmqtt.parse_control({'MessageType': 'BrightnessChange', 'Parameters': {'Brightness': 20}}) == \
         {'brightness': 20}
-    assert mqtt.parse_control({'MessageType': 'ModeChange',
+    assert lightmqtt.parse_control({'MessageType': 'ModeChange',
                                'Parameters': {'Mode': 'Colour', 'ModeParameters': {'Colour': '#00ff00'}}}) == \
         {'mode': 'Colour', 'parameters': {'Colour': '#00ff00'}}
 
@@ -93,18 +93,18 @@ def test_control_messages():
                                      {'MessageType': 'StateChange', 'Parameters': {'State': 'on'}}])
 def test_bad_control_messages_are_refused(payload):
     with pytest.raises(ValueError):
-        mqtt.parse_control(payload)
+        lightmqtt.parse_control(payload)
 
 
 def test_home_assistant_commands():
     modes = ('Colour', 'Rainbows')
-    assert mqtt.parse_ha_command({'state': 'ON', 'brightness': 49.6, 'transition': 2}, modes) == \
+    assert lightmqtt.parse_ha_command({'state': 'ON', 'brightness': 49.6, 'transition': 2}, modes) == \
         {'on': True, 'brightness': 50, 'transition_ms': 2000}
-    assert mqtt.parse_ha_command({'color': {'r': 1, 'g': 2, 'b': 3}}, modes) == \
+    assert lightmqtt.parse_ha_command({'color': {'r': 1, 'g': 2, 'b': 3}}, modes) == \
         {'mode': 'Colour', 'parameters': {'Colour': '#010203'}}
-    assert mqtt.parse_ha_command({'color_temp': 370}, modes) == {'mode': 'Colour', 'parameters': {'Kelvin': 2703}}
-    assert mqtt.parse_ha_command({'effect': 'Rainbows'}, modes) == {'mode': 'Rainbows'}
-    assert mqtt.parse_ha_command({'state': 'ON', 'brightness': 0}, modes)['brightness'] == 1
+    assert lightmqtt.parse_ha_command({'color_temp': 370}, modes) == {'mode': 'Colour', 'parameters': {'Kelvin': 2703}}
+    assert lightmqtt.parse_ha_command({'effect': 'Rainbows'}, modes) == {'mode': 'Rainbows'}
+    assert lightmqtt.parse_ha_command({'state': 'ON', 'brightness': 0}, modes)['brightness'] == 1
 
 
 @pytest.mark.parametrize('text, now', [
@@ -112,7 +112,7 @@ def test_home_assistant_commands():
     ('true', True), ('0', False), ('', False), ('ding', True), ('{"State": "on"}', True), ('{"other": 1}', True),
 ])
 def test_what_a_watched_message_means(text, now):
-    assert mqtt.watched(text) is now
+    assert lightmqtt.watched(text) is now
 
 
 @pytest.mark.parametrize('pattern, topic, matches', [
@@ -120,17 +120,17 @@ def test_what_a_watched_message_means(text, now):
     ('a/b', 'a/c', False), ('a/b/c', 'a/b', False),
 ])
 def test_topic_matching(pattern, topic, matches):
-    assert mqtt.topic_matches(pattern, topic) is matches
+    assert lightmqtt.topic_matches(pattern, topic) is matches
 
 
 def test_alert_messages():
-    assert mqtt.parse_alert('') == {}
-    assert mqtt.parse_alert('{"Colour": "#0000ff", "Seconds": 5, "Other": 1}') == {'colour': '#0000ff', 'seconds': 5}
-    assert mqtt.parse_alert('{"Active": false}') is None
+    assert lightmqtt.parse_alert('') == {}
+    assert lightmqtt.parse_alert('{"Colour": "#0000ff", "Seconds": 5, "Other": 1}') == {'colour': '#0000ff', 'seconds': 5}
+    assert lightmqtt.parse_alert('{"Active": false}') is None
 
 
 @pytest.mark.parametrize('payload', [{}, {'state': 'on'}, {'effect': 'Fire'}, {'brightness': 101},
                                      {'color': {'r': 300, 'g': 0, 'b': 0}}, {'color_temp': True}])
 def test_bad_home_assistant_commands_are_refused(payload):
     with pytest.raises(ValueError):
-        mqtt.parse_ha_command(payload, ('Colour',))
+        lightmqtt.parse_ha_command(payload, ('Colour',))

@@ -2,7 +2,7 @@ import json
 
 import pytest
 
-from base import mqtt
+from base import lightmqtt, mqtt
 from base.light import Light, LIGHT_SETTINGS
 from base.settings import Settings, merge
 
@@ -32,35 +32,35 @@ def state(on=True, mode='Colour', parameters=None, brightness=50):
 
 
 def test_the_payload_is_the_state_with_the_parameters_that_define_the_mode(light):
-    payload = json.loads(mqtt.group_payload(light, 'unicorn'))
+    payload = json.loads(lightmqtt.group_payload(light, 'unicorn'))
     assert payload == {'State': True, 'Mode': 'Colour', 'ModeParameters': {'Colour': '#ff0000'}, 'Brightness': 50,
                        'From': 'unicorn'}
     light.set(parameters={'Kelvin': 2700})
-    assert json.loads(mqtt.group_payload(light, 'unicorn'))['ModeParameters'] == {'Kelvin': 2700}
+    assert json.loads(lightmqtt.group_payload(light, 'unicorn'))['ModeParameters'] == {'Kelvin': 2700}
 
 
 def test_its_own_state_coming_back_changes_nothing(light):
-    payload = json.loads(mqtt.group_payload(light, 'unicorn'))
-    assert mqtt.group_change(payload, light, True) == {}
+    payload = json.loads(lightmqtt.group_payload(light, 'unicorn'))
+    assert lightmqtt.group_change(payload, light, True) == {}
 
 
 def test_follows_power_colour_and_brightness(light):
-    change = mqtt.group_change(state(False, parameters={'Colour': '#00FF00'}, brightness=20), light, True)
+    change = lightmqtt.group_change(state(False, parameters={'Colour': '#00FF00'}, brightness=20), light, True)
     assert change == {'on': False, 'mode': 'Colour', 'parameters': {'Colour': '#00FF00'}, 'brightness': 20}
 
 
 def test_brightness_can_be_its_own(light):
-    assert mqtt.group_change(state(brightness=20), light, False) == {}
+    assert lightmqtt.group_change(state(brightness=20), light, False) == {}
 
 
 def test_a_mode_it_doesnt_have_is_left_out(light):
-    assert mqtt.group_change(state(False, mode='Fire'), light, True) == {'on': False}
+    assert lightmqtt.group_change(state(False, mode='Fire'), light, True) == {'on': False}
 
 
 def test_a_speed_change_restarts_nothing_but_is_followed(light):
     light.set(mode='Rainbows', parameters={'Speed': 5})
-    assert mqtt.group_change(state(mode='Rainbows', parameters={'Speed': 5}), light, True) == {}
-    assert mqtt.group_change(state(mode='Rainbows', parameters={'Speed': 8}), light, True) == \
+    assert lightmqtt.group_change(state(mode='Rainbows', parameters={'Speed': 5}), light, True) == {}
+    assert lightmqtt.group_change(state(mode='Rainbows', parameters={'Speed': 8}), light, True) == \
         {'mode': 'Rainbows', 'parameters': {'Speed': 8}}
 
 
@@ -68,7 +68,7 @@ def test_a_speed_change_restarts_nothing_but_is_followed(light):
                                      {'State': True, 'Mode': 'Colour', 'Brightness': 0}])
 def test_unusable_states_are_refused(light, payload):
     with pytest.raises(ValueError):
-        mqtt.group_change(payload, light, True)
+        lightmqtt.group_change(payload, light, True)
 
 
 def test_changes_made_following_the_group_are_marked(light):
@@ -80,9 +80,9 @@ def test_changes_made_following_the_group_are_marked(light):
 
 
 def test_group_names():
-    assert mqtt.group_error('living_room-1') is None
-    assert mqtt.group_error('living room')
-    assert mqtt.group_error('x' * 33)
+    assert lightmqtt.group_error('living_room-1') is None
+    assert lightmqtt.group_error('living room')
+    assert lightmqtt.group_error('x' * 33)
 
 
 def test_group_topics_are_never_cleared():
