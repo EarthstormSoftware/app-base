@@ -211,3 +211,45 @@ def test_on_trial_only_while_an_update_awaits_confirmation(root, monkeypatch):
     stage()
     boot_once()
     assert otaboot.on_trial()
+
+
+def test_the_last_updates_leftovers_are_cleared_before_the_space_is_counted(root, monkeypatch):
+    write(root, 'update/files/app.mpy', b'x' * 300)
+    write(root, 'prev/api.mpy', b'x' * 300)
+    # one block for app.mpy, two each for update, update/files and prev, and the margin: enough once the leftovers
+    # are gone, short while they're there
+    need = 4096 + 3 * 2 * 4096 + 16384
+    monkeypatch.setattr(ota, 'free_bytes', lambda: need - 8192 * (root / 'prev').exists())
+    assert ota.Updater().begin({'version': '1', 'mpy': 6, 'files': [entry('app.mpy', b'y' * 400)]}) is None
+    assert not (root / 'prev').exists()
+
+
+def test_the_space_needed_counts_whole_blocks_and_folders(root):
+    # littlefs: a file takes whole 4 KB blocks, a folder two. Three small files into base/www (new) and app.mpy
+    # (replacing one, so its backup goes to prev/): 4 blocks of files; folders update, update/files,
+    # update/files/base, update/files/base/www, base, base/www and prev: 7, two blocks each; and the 16 KB margin
+    files = [{'path': 'base/www/a.js', 'size': 10}, {'path': 'base/www/b.js', 'size': 10},
+             {'path': 'base/www/c.js', 'size': 10}, {'path': 'app.mpy', 'size': 5000}]
+    assert ota.space_needed(files, []) == 5 * 4096 + 7 * 2 * 4096 + 16384
+    # removing a file that's there backs it up in prev/www too
+    assert ota.space_needed(files, ['www/index.html']) == 5 * 4096 + 8 * 2 * 4096 + 16384
+
+
+class _Request:
+    """A request whose body is read from the stream, as one over 1 KB is."""
+    def __init__(self, body, content_type='application/x-ndjson'):
+        from base.microdot import AsyncBytesIO
+        self.content_length, self.content_type, self.body = len(body), content_type, None
+        self.stream = AsyncBytesIO(body)
+
+
+def test_a_manifest_is_read_a_line_at_a_time():
+    import asyncio
+    from base.pico import web
+    lines = [{'version': '2.1.0', 'mpy': 6}, entry('app.mpy', b'x'), entry('base/www/base.js.gz', b'yy'),
+             {'remove': 'api.mpy'}, {'remove': 'www/index.html'}]
+    body = ''.join(json.dumps(line) + '\n' for line in lines).encode()
+    m = asyncio.run(web._manifest_lines(_Request(body)))
+    assert m == {'version': '2.1.0', 'mpy': 6, 'files': [entry('app.mpy', b'x'), entry('base/www/base.js.gz', b'yy')],
+                 'remove': ['api.mpy', 'www/index.html']}
+    assert asyncio.run(web._manifest_lines(_Request(b'{"version": "1", "mpy": 6}\nnot json\n'))) is None
