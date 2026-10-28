@@ -2,7 +2,7 @@ import json
 
 import pytest
 
-from base import lightmqtt, mqtt
+from base import discovery, lightmqtt, lightwatch, mqtt
 
 
 class Product:
@@ -73,7 +73,7 @@ def test_home_assistant_state_in_colour_and_white():
 
 def test_discovery_describes_the_light_and_its_device():
     t = mqtt.topics('lamp', light=True)
-    config = json.loads(lightmqtt.ha_light_payload('lamp', t, Product, ('Colour', 'Rainbows')))
+    config = json.loads(discovery.light('lamp', t, Product, ('Colour', 'Rainbows')))
     assert config['command_topic'] == t['ha_set']
     assert config['effect_list'] == ['Colour', 'Rainbows']
     assert config['device'] == {'identifiers': ['lamp'], 'name': 'lamp', 'manufacturer': 'Earthstorm Software',
@@ -112,7 +112,7 @@ def test_home_assistant_commands():
     ('true', True), ('0', False), ('', False), ('ding', True), ('{"State": "on"}', True), ('{"other": 1}', True),
 ])
 def test_what_a_watched_message_means(text, now):
-    assert lightmqtt.watched(text) is now
+    assert lightwatch.watched(text) is now
 
 
 @pytest.mark.parametrize('pattern, topic, matches', [
@@ -120,7 +120,7 @@ def test_what_a_watched_message_means(text, now):
     ('a/b', 'a/c', False), ('a/b/c', 'a/b', False),
 ])
 def test_topic_matching(pattern, topic, matches):
-    assert lightmqtt.topic_matches(pattern, topic) is matches
+    assert lightwatch.topic_matches(pattern, topic) is matches
 
 
 def test_alert_messages():

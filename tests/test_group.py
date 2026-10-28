@@ -2,7 +2,7 @@ import json
 
 import pytest
 
-from base import lightmqtt, mqtt
+from base import lightgroup, lightmqtt, mqtt
 from base.light import Light, LIGHT_SETTINGS
 from base.settings import Settings, merge
 
@@ -32,35 +32,35 @@ def state(on=True, mode='Colour', parameters=None, brightness=50):
 
 
 def test_the_payload_is_the_state_with_the_parameters_that_define_the_mode(light):
-    payload = json.loads(lightmqtt.group_payload(light, 'unicorn'))
+    payload = json.loads(lightgroup.group_payload(light, 'unicorn'))
     assert payload == {'State': True, 'Mode': 'Colour', 'ModeParameters': {'Colour': '#ff0000'}, 'Brightness': 50,
                        'From': 'unicorn'}
     light.set(parameters={'Kelvin': 2700})
-    assert json.loads(lightmqtt.group_payload(light, 'unicorn'))['ModeParameters'] == {'Kelvin': 2700}
+    assert json.loads(lightgroup.group_payload(light, 'unicorn'))['ModeParameters'] == {'Kelvin': 2700}
 
 
 def test_its_own_state_coming_back_changes_nothing(light):
-    payload = json.loads(lightmqtt.group_payload(light, 'unicorn'))
-    assert lightmqtt.group_change(payload, light, True) == {}
+    payload = json.loads(lightgroup.group_payload(light, 'unicorn'))
+    assert lightgroup.group_change(payload, light, True) == {}
 
 
 def test_follows_power_colour_and_brightness(light):
-    change = lightmqtt.group_change(state(False, parameters={'Colour': '#00FF00'}, brightness=20), light, True)
+    change = lightgroup.group_change(state(False, parameters={'Colour': '#00FF00'}, brightness=20), light, True)
     assert change == {'on': False, 'mode': 'Colour', 'parameters': {'Colour': '#00FF00'}, 'brightness': 20}
 
 
 def test_brightness_can_be_its_own(light):
-    assert lightmqtt.group_change(state(brightness=20), light, False) == {}
+    assert lightgroup.group_change(state(brightness=20), light, False) == {}
 
 
 def test_a_mode_it_doesnt_have_is_left_out(light):
-    assert lightmqtt.group_change(state(False, mode='Fire'), light, True) == {'on': False}
+    assert lightgroup.group_change(state(False, mode='Fire'), light, True) == {'on': False}
 
 
 def test_a_speed_change_restarts_nothing_but_is_followed(light):
     light.set(mode='Rainbows', parameters={'Speed': 5})
-    assert lightmqtt.group_change(state(mode='Rainbows', parameters={'Speed': 5}), light, True) == {}
-    assert lightmqtt.group_change(state(mode='Rainbows', parameters={'Speed': 8}), light, True) == \
+    assert lightgroup.group_change(state(mode='Rainbows', parameters={'Speed': 5}), light, True) == {}
+    assert lightgroup.group_change(state(mode='Rainbows', parameters={'Speed': 8}), light, True) == \
         {'mode': 'Rainbows', 'parameters': {'Speed': 8}}
 
 
@@ -68,7 +68,7 @@ def test_a_speed_change_restarts_nothing_but_is_followed(light):
                                      {'State': True, 'Mode': 'Colour', 'Brightness': 0}])
 def test_unusable_states_are_refused(light, payload):
     with pytest.raises(ValueError):
-        lightmqtt.group_change(payload, light, True)
+        lightgroup.group_change(payload, light, True)
 
 
 def test_changes_made_following_the_group_are_marked(light):
@@ -89,3 +89,40 @@ def test_group_topics_are_never_cleared():
     t = mqtt.topics('lamp', light=True, group='lounge')
     assert t['group'] == 'earthstorm/group/lounge' and t['group_old'] == 'plasmastick/group/lounge'
     assert t['group'] not in mqtt.retained(t) and t['group_old'] not in mqtt.retained(t)
+
+
+class Platform:
+    @staticmethod
+    def device_name():
+        return 'lamp'
+
+    @staticmethod
+    def health():
+        return {}
+
+
+class Product:
+    NAME, VERSION = 'Lamp', '1.0.0'
+
+
+class Device:
+    def __init__(self, settings, light):
+        self.settings, self.light, self.platform, self.product = settings, light, Platform, Product
+
+    def info(self):
+        return {}
+
+
+@pytest.mark.parametrize('group, alert_topic', [('', ''), ('upstairs', ''), ('', 'hall/state')])
+def test_group_and_watcher_code_is_loaded_only_when_used(tmp_path, light, group, alert_topic):
+    import sys
+    from base.settings import BASE_SETTINGS
+    from base.compat import release
+    for name in ('base.lightgroup', 'base.lightwatch'):
+        release(name)
+    settings = Settings(str(tmp_path / 'mqtt.json'), merge(BASE_SETTINGS, mqtt.MQTT_SETTINGS,
+                                                            lightmqtt.LIGHT_MQTT_SETTINGS, LIGHT_SETTINGS))
+    assert settings.update({'mqtt': {'group': group, 'alert_topic': alert_topic}})[0] is None
+    m = lightmqtt.LightMqtt(Device(settings, light))
+    assert ('base.lightgroup' in sys.modules) == bool(group) == (m._group is not None)
+    assert ('base.lightwatch' in sys.modules) == bool(alert_topic) == (m._watch is not None)
