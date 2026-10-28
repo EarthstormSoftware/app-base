@@ -30,5 +30,10 @@ both the running version and a staged update. Check:
 6. **Both platforms:** App Base also runs on a Raspberry Pi (CPython): Pico-only code stays under `base/pico`, and
    `base.compat` covers the differences.
 
+**The heap budget:** a PlasmaStick in a group with 75 LEDs (two kitchen lights) has about 40 KB free at rest, and at
+32 KB it failed requests (no single block of about 1 KB in a fragmented heap). Nothing may take it below 35 KB at rest:
+anything new is either loaded only while it's used and released afterwards, or kept to a KB or two. Say how much
+of that budget a change uses.
+
 Run the tests if they're quick (`py -m pytest -q` in the repo). Report each finding with the file, the line, the
 likely cost (KB of heap or flash) and a suggested fix, most costly first. If nothing turns up, say so in one line.
