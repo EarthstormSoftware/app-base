@@ -67,8 +67,34 @@ class Light:
         self.calls.append(change)
 
 
+class Device:
+    def __init__(self, light=None, product=None):
+        self.light = light
+        self.product = product
+
+
 def test_events_act_on_the_light():
     light = Light()
-    schedule.run_event(light, {'action': 'on', 'at': '18:00', 'mode': 'Rainbows', 'brightness': 40})
-    schedule.run_event(light, {'action': 'off', 'at': '23:00'})
+    schedule.run_event(Device(light), {'action': 'on', 'at': '18:00', 'mode': 'Rainbows', 'brightness': 40})
+    schedule.run_event(Device(light), {'action': 'off', 'at': '23:00'})
     assert light.calls == [{'on': True, 'mode': 'Rainbows', 'brightness': 40}, {'on': False}]
+
+
+class Sensor:
+    def __init__(self):
+        self.calls = []
+
+    def scheduled(self, device, on):
+        self.calls.append(on)
+
+
+def test_another_products_events_go_to_its_scheduled():
+    product = Sensor()
+    schedule.run_event(Device(product=product), {'action': 'off', 'at': '08:00'})
+    schedule.run_event(Device(product=product), {'action': 'on', 'at': '18:00'})
+    assert product.calls == [False, True]
+
+
+def test_another_products_events_have_no_mode():
+    assert schedule.event_error({'days': [0], 'at': '08:00', 'action': 'on', 'mode': 'Rainbows'}, ()) is not None
+    assert schedule.event_error({'days': [0], 'at': '08:00', 'action': 'on'}, ()) is None
