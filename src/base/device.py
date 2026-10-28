@@ -33,12 +33,14 @@ class Device:
         self.platform = platform
         is_light = hasattr(product, 'LIGHT_MODES')
         from base.mqtt import MQTT_SETTINGS
-        schemas = [BASE_SETTINGS, MQTT_SETTINGS, product.SETTINGS]
+        # The platform's after the base's (a Pico's MQTT password replaces the base's), and the product's last
+        schemas = [BASE_SETTINGS, MQTT_SETTINGS, getattr(platform, 'SETTINGS', {}), product.SETTINGS]
         if is_light:
             from base.light import LIGHT_SETTINGS
             from base.schedule import schedule_settings
             schemas[1:1] = [LIGHT_SETTINGS, schedule_settings(('Colour',) + tuple(product.LIGHT_MODES))]
-        self.settings = Settings(platform.state_path('config.json'), merge(*schemas))
+        self.settings = Settings(platform.state_path('config.json'), merge(*schemas),
+                                 codec=getattr(platform, 'Codec', None))
         Log.level = self.settings.get('device', 'log_level')
         self.www = getattr(product, 'www', None) or beside(product.__file__, 'www')
         self.light = None
@@ -94,7 +96,10 @@ class Device:
 
     def reset(self):
         Log.warn(TAG, 'Resetting the settings')
-        self.settings.reset()
+        # Except the ones that describe the hardware rather than a preference (RESET_KEEPS: (section, key) pairs)
+        self.settings.reset(getattr(self.product, 'RESET_KEEPS', ()))
+        if hasattr(self.platform, 'reset'):
+            self.platform.reset()
 
     async def restart_soon(self):
         # Long enough for the response to go
@@ -103,27 +108,37 @@ class Device:
         self.platform.restart()
 
     async def main(self):
+        # The light and the product's own tasks first: they work without the network
+        tasks = []
+        if self.light is not None:
+            tasks.append(asyncio.create_task(self.light.run()))
+        if hasattr(self.product, 'tasks'):
+            tasks += [asyncio.create_task(task) for task in self.product.tasks(self)]
+        if hasattr(self.platform, 'start'):
+            await self.platform.start(self)  # a Pico's Wi-Fi, and the rest that needs it
         from base import web
         app = web.create(self)
         port = getattr(self.platform, 'PORT', PORT)
-        tasks = [asyncio.create_task(app.start_server(host=None if not MICROPYTHON else '0.0.0.0', port=port))]
+        server = asyncio.create_task(app.start_server(host=None if not MICROPYTHON else '0.0.0.0', port=port))
+        tasks.append(server)
+        if hasattr(self.platform, 'serving'):
+            asyncio.create_task(self.platform.serving(server))
         if self.light is not None:
             from base import schedule
-            tasks.append(asyncio.create_task(self.light.run()))
             tasks.append(asyncio.create_task(schedule.run(self)))
         if self.mqtt.enabled:
             tasks.append(asyncio.create_task(self.mqtt.run()))
         if hasattr(self.platform, 'watchdog'):
             tasks.append(asyncio.create_task(self.platform.watchdog()))
-        if hasattr(self.product, 'tasks'):
-            tasks += [asyncio.create_task(task) for task in self.product.tasks(self)]
         Log.info(TAG, '{} {} on port {}'.format(self.product.NAME, self.product.VERSION, port))
         await asyncio.gather(*tasks)
 
 
 def run(product):
     if MICROPYTHON:
-        raise NotImplementedError('The Pico layer comes in App Base step 2')
+        from base import pico
+        pico.run(product)
+        return
     from base import pi as platform
     device = Device(product, platform)
     asyncio.run(device.main())

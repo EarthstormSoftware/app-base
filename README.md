@@ -2,8 +2,8 @@
 
 What the Earthstorm devices have in common, written once: the web page and JSON API, settings, MQTT and Home
 Assistant, a light model with modes, fades, alerts, groups and a schedule, and the page's shared style and script.
-It runs under CPython, for [ApplPi OS](https://github.com/EarthstormSoftware/applpi-os) apps, and is written to run
-under MicroPython on a Pico W too (that layer comes next).
+It runs under CPython, for [ApplPi OS](https://github.com/EarthstormSoftware/applpi-os) apps, and under MicroPython
+on a Pico W, where it also does what the OS does on a Pi (Wi-Fi, setup mode, updates over Wi-Fi, the clock).
 
 Its first user is [ApplPi Unicorn](https://github.com/EarthstormSoftware/applpi-unicorn). The design and the steps
 are in [docs/roadmap.md](docs/roadmap.md).
@@ -19,6 +19,7 @@ are in [docs/roadmap.md](docs/roadmap.md).
 | `mqtt.py`, `mqttclient.py` | MQTT (state, commands, alerts, groups, Home Assistant discovery) and a small asyncio client |
 | `schedule.py` | The schedule: events at times, or at sunrise or sunset |
 | `pi.py` | The platform on ApplPi OS: the state folder, the Pi's name, health and clock |
+| `pico/` | The platform on a Pico W: Wi-Fi with the fallback to setup mode, setup mode's hotspot and page, updates over Wi-Fi with a rollback (`otaboot.py` goes on the board's root), NTP and local time, the watchdog, BOOTSEL and the LED, the MQTT client (mqtt_as, from the product's `lib/`), and its own routes. It keeps a device's files as the firmware before the base did |
 | `compat.py` | The differences between CPython and MicroPython |
 | `microdot.py` | [Microdot](https://github.com/miguelgrinberg/microdot), the web server |
 

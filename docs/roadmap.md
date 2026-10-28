@@ -126,7 +126,8 @@ or off). Checked on the device.
 Decided (2026-10-28):
 - **The Pico layer** is `base/pico/`: Wi-Fi (`wlan`), setup mode (`setup`, with the captive DNS), Wi-Fi updates
   (`ota`), NTP and the clock, the watchdog, BOOTSEL and the onboard LED, the name and the stored-password encryption.
-  `base/pico.py` is the platform, as `base/pi.py` is on a Pi. An ApplPi app's copy carries the folder unused.
+  The package itself (`base/pico/__init__.py`) is the platform, as `base/pi.py` is on a Pi. An ApplPi app's copy
+  carries the folder unused, and a Pico's leaves out `pi.py` and `mqttclient.py`.
 - **Devices carry on as they are.** A Pico on the base reads the files it has now: `config.json` in the same layout
   (the web password as `password_hash`, the MQTT password encrypted as `password_iv` and `password_enc`), and
   `provisioning.json` (Wi-Fi) and `device_name.json` beside it. It writes them the same way, so an update that rolls
@@ -139,14 +140,15 @@ Decided (2026-10-28):
   10 minutes. The page shows them through `/api/wifi`, as on a Pi.
 - **Setup mode from the page**: `/api/setup-mode` and `/api/factory-reset` as on a Pi, and the name through
   `/api/name` (a Pico's name is its own to change, `name_editable`).
-- **The clock**: `/api/clock` takes a UTC offset and a summer time rule on a Pico (a zone name on a Pi), and the
-  NTP server on both; base.js shows whichever the device has.
+- **The clock**: on a Pico, its settings (`device.utc_offset_min`, `dst`, `ntp_server`) are ordinary settings on the
+  page; `/api/clock` is a Pi's, where the OS has them.
 - **Getting there over Wi-Fi.** A device's current updater only writes `/`, `lib`, `lib/mqtt_as` and `www`, so
   first a bridge release that only lets it write `base/` too (one file, `ota.mpy`), then the release on the base.
   `main.py` and `otaboot` stay as they are (USB only): `main.py` still imports `app`, which becomes
   `run(product)`.
-- **Memory**: the base's code is about the size of what it replaces (60 KB of bytecode for a sensor). Measured on
-  the device; if it's short, the light parts of `mqtt.py` move out so a sensor doesn't load them.
+- **Memory**: a sensor on the base loads about 70 KB of bytecode, against about 59 KB before, so about 10 KB less
+  heap than the 80-90 KB free now. Measured on the device; if it's short, the light parts of `mqtt.py` move out so
+  a sensor doesn't load them.
 
 ### 3. PlasmaStick onto the base
 

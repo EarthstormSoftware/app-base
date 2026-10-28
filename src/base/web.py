@@ -220,6 +220,9 @@ def create(device):
             return restarting(request, platform.os_setup(), 'Factory reset: the Pi forgets its settings',
                               platform.factory_reset)
 
+    if hasattr(platform, 'routes'):
+        platform.routes(app, device)  # a Pico's (base.pico.web)
+
     if device.light is not None:
         light = device.light
 
