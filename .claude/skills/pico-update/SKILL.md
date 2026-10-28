@@ -20,6 +20,12 @@ looked up as `hallway.local`, or an IP address).
 4. Report what it sent and removed, the version the device came back on and its free memory (`/api/info`'s
    `mem_free`). Suggest `/pico-check` next.
 
+Size: a device on this base reads the manifest a line at a time, so the number of files doesn't matter to its heap.
+Flash does: an update needs its files in whole 4 KB blocks plus its folders while the old version is still there.
+A PlasmaStick (640 KB) fits about 30 changed files; replacing all of them (`--all`, about 370 KB) doesn't, and is
+refused before anything is written. Pico PIR (more flash) takes `--all` (tested on hallway, 2026-10-28). A bad
+update rolls back by itself after two trial boots, about 9 minutes (tested on porch).
+
 When it fails, read the device's answer before retrying:
 - `not a firmware file` for `*.gz`: the device's updater predates gzipped web files. Send one update without them
   first (the code, with the plain `www` files from `src/` in their place), then the full one.
