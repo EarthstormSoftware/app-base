@@ -23,3 +23,14 @@ def test_a_plain_file_is_sent_without_one(tmp_path):
         assert response.body.read() == b'<p>hi</p>'
     finally:
         response.body.close()
+
+
+def test_a_json_object_is_sent_a_section_at_a_time():
+    import asyncio
+    import json
+
+    async def collect():
+        return [part async for part in web._sections({'device': {'name': 'x'}, 'mqtt': {'port': 1883}, '_restart': []})]
+    parts = asyncio.run(collect())
+    assert len(parts) == 5
+    assert json.loads(''.join(parts)) == {'device': {'name': 'x'}, 'mqtt': {'port': 1883}, '_restart': []}
