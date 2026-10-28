@@ -23,20 +23,20 @@ looked up as `hallway.local`, or an IP address).
 Size: a device on this base reads the manifest a line at a time, so the number of files doesn't matter to its heap.
 Flash does: an update needs its files in whole 4 KB blocks plus its folders while the old version is still there.
 A PlasmaStick (640 KB) fits about 30 changed files; replacing all of them (`--all`, about 370 KB) doesn't, and is
-refused before anything is written. Pico PIR (more flash) takes `--all` (tested on hallway, 2026-10-28). A bad
-update rolls back by itself after two trial boots, about 9 minutes (tested on porch).
+refused before anything is written. Pico PIR (more flash) takes `--all` (tested 2026-10-28). A bad
+update rolls back by itself after two trial boots, about 9 minutes (tested).
 
 When it fails, read the device's answer before retrying:
 - `not a firmware file` for `*.gz`: the device's updater predates gzipped web files. Send one update without them
   first (the code, with the plain `www` files from `src/` in their place), then the full one.
 - `HTTP 500 ... ValueError` on begin: an early 2.0 can't read a manifest over 1 KB (about 8 files). Send
-  `base/pico/web.mpy` and `base/pico/ota.mpy` alone first; after that it takes any size (hallway, 2026-10-28).
+  `base/pico/web.mpy` and `base/pico/ota.mpy` alone first; after that it takes any size.
 - `not enough space`: the update needs its files in whole 4 KB blocks, its folders (two blocks each) and 16 KB,
   while the old version is still there. Don't split it into batches that leave the new files beside the old ones: that fills the flash (it happened on a 1.4.4
   PlasmaStick). Use USB (`/pico-usb`) instead.
 - A PlasmaStick on 1.4.2 (to 1.4.4) can't take 2.0 in one go: it reads each file whole, can't read a manifest
   over 1 KB, and its flash (640 KB, every file at least a 4 KB block) has no room for 1.4 and 2.0 side by side.
-  Done on porch, kitchen-left and kitchen-right, 2026-10-28. The bridge's `wifi_update.py` (branch
+  Done on three devices, 2026-10-28. The bridge's `wifi_update.py` (branch
   `bridge-1.4.3`, which has `--only` and `--remove`) with the bridge build's `files.json` for steps 1-2, and the
   product's `app-base` build for 3-4:
   1. `--only ota.mpy,httpserver.mpy,version.mpy` takes it to 1.4.5. 1.4.2 needs 6 KB in one piece for

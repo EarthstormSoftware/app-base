@@ -15,7 +15,7 @@ Check a Pico device. Arguments: $ARGUMENTS (the product, the device, and optiona
    Report the PASS/FAIL/SKIP counts and quote each FAIL. Known baseline: a PlasmaStick in an MQTT group with other
    lights fails the brightness checks, because the group sets it back. Say so rather than calling it a regression.
 3. Report the version, uptime and `mem_free` from `/api/info`. Compare the free memory with the last figure in the
-   project's notes (about 66 KB for Pico PIR 2.0 on hallway, about 45 KB for PlasmaStick 2.0 on porch at rest, 37 KB animating); a drop of more than 5 KB needs a reason.
+   project's notes (about 62 KB for Pico PIR 2.0; for PlasmaStick 2.0 about 45 KB at rest, 37 KB animating, and about 40 KB in a group with 75 LEDs); a drop of more than 5 KB needs a reason.
 4. During a soak, an uptime that goes down means a restart: say when, and suggest `/pico-usb <product> log` to find
    out why.
 
