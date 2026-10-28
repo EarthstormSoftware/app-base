@@ -21,7 +21,7 @@ def test_topics_follow_the_base_and_prefix():
 
 
 def test_a_device_that_isnt_a_light_has_no_light_topics():
-    assert set(mqtt.topics('pir')) == {'status', 'info'}
+    assert set(mqtt.topics('pir')) == {'status', 'info', 'log'}
 
 
 def test_only_published_topics_are_retained():

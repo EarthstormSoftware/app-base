@@ -118,3 +118,43 @@ def test_connecting_announces_the_entities_then_lets_the_discovery_code_go(tmp_p
     assert 'base.discovery' not in sys.modules
     import base
     assert not hasattr(base, 'discovery')
+
+
+def test_warnings_and_errors_go_to_the_log_topic_a_few_at_most(tmp_path):
+    import asyncio
+    from base.log import Log
+    device = Device(tmp_path, Sensor())
+    device.settings.update({'mqtt': {'enabled': True, 'broker_address': 'broker'}})
+    m = mqtt.Mqtt(device)
+    m.topics = m._topics()
+    try:
+        assert Log.sink == m._log_line
+        Log.info('TEST', 'not this')
+        for n in range(mqtt.LOG_LINES + 2):
+            Log.warn('TEST', 'warning {} '.format(n) + 'x' * 200)
+        assert len(m._log) == mqtt.LOG_LINES and 'warning 2 ' in m._log[0]  # the oldest went
+        assert all(len(line) <= mqtt.LOG_LINE_MAX for line in m._log)
+        Log.error('TEST', 'an error')
+
+        sent = []
+
+        class Client:
+            async def publish(self, topic, message, retain=False):
+                sent.append((topic, message, retain))
+                if len(sent) == mqtt.LOG_LINES:
+                    raise OSError('gone')  # a dropped connection ends the task
+
+            def close(self):
+                pass
+
+        asyncio.run(m._publish_log(Client()))
+        assert [topic for topic, _, _ in sent] == [m.topics['log']] * mqtt.LOG_LINES
+        assert not any(retain for _, _, retain in sent)
+        assert m._log == ['[ERR] [TEST] :: an error']  # not sent yet: kept for the next connection
+    finally:
+        Log.sink = None
+
+
+def test_the_log_topic_is_not_retained():
+    t = mqtt.topics('hall')
+    assert t['log'] == '/home/device/hall/log' and t['log'] not in mqtt.retained(t)
