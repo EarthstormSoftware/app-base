@@ -9,6 +9,8 @@ from base import pi
 @pytest.fixture
 def os_request(tmp_path, monkeypatch):
     """app-request as a file (what os_setup() reads) and the requests made of it (what _request() would run)."""
+    monkeypatch.delenv('APPLPI', raising=False)
+
     def given(text):
         path = tmp_path / 'app-request'
         path.write_text(text, encoding='utf-8')
@@ -77,3 +79,30 @@ def test_wifi_changes_are_offered_only_when_the_os_takes_them(os_request):
     with pytest.raises(pi.RequestError):
         pi.change_wifi('Upstairs', 'secret password')
     assert os_request.asked == []
+
+
+def test_an_os_that_says_its_applpi_version_is_believed_over_app_request(os_request, monkeypatch):
+    os_request('...  app-request restart  ...')  # app-request's text no longer decides
+    monkeypatch.setenv('APPLPI', '1.0')
+    assert pi.applpi() == (1, 0)
+    assert pi.os_requests() is True
+    assert pi.os_setup() is True
+    assert pi.os_wifi() is True
+
+
+def test_a_later_minor_has_what_came_before_and_another_major_has_none_of_it(os_request, monkeypatch):
+    os_request('...  app-request networks  app-request factory-reset  ...')
+    monkeypatch.setenv('APPLPI', '1.3')
+    assert pi.os_wifi() is True
+    monkeypatch.setattr(pi, '_wifi', None)
+    monkeypatch.setenv('APPLPI', '2.0')
+    assert pi.os_wifi() is False
+
+
+@pytest.mark.parametrize('value', ['', '1', 'one.two', '1.x', '.1'])
+def test_without_a_usable_applpi_the_os_is_asked_as_before(os_request, monkeypatch, value):
+    os_request('...  app-request factory-reset  ...')
+    monkeypatch.setenv('APPLPI', value)
+    assert pi.applpi() is None
+    assert pi.os_setup() is True
+    assert pi.os_wifi() is False
