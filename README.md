@@ -5,7 +5,8 @@ Assistant, a light model with modes, fades, alerts, groups and a schedule, and t
 It runs under CPython, for [Juggle OS](https://github.com/EarthstormSoftware/juggle-os) apps, and under MicroPython
 on a Pico W, where it also does what the OS does on a Pi (Wi-Fi, setup mode, updates over Wi-Fi, the clock).
 
-Its first user is [Juggle Unicorn](https://github.com/EarthstormSoftware/juggle-unicorn). A new product starts from
+[PlasmaStick Controller](https://github.com/EarthstormSoftware/plasmastick-controller) (a light) and
+[Pico PIR](https://github.com/EarthstormSoftware/pico-pir) (a sensor) run on it on a Pico W. A new product starts from
 [Juggle Hello](https://github.com/EarthstormSoftware/juggle-hello) (a Juggle OS app) or [Pico Hello](https://github.com/EarthstormSoftware/pico-hello) (a Pico W),
 each the smallest product on the base. The design and the steps are in [docs/roadmap.md](docs/roadmap.md).
 
