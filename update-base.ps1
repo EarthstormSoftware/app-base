@@ -1,4 +1,4 @@
-# Copies App Base into a product: .\update-base.ps1 -Product ..\applpi-unicorn\app [-Tag v0.1.0 | -From .]
+# Copies App Base into a product: .\update-base.ps1 -Product ..\juggle-unicorn\app [-Tag v0.1.0 | -From .]
 # The product keeps the copy in <folder>\base, with VERSION: where it came from, and each file's SHA-256, which the
 # product's tests check so the copy isn't edited there (a fix goes into App Base first).
 #   -Tag   a tagged release of this repo (git archive of the tag)

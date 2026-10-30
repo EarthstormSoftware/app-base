@@ -2,7 +2,7 @@
 
 App Base is what the Earthstorm devices have in common, taken out of the projects that copy it today: PlasmaStick
 Controller and Pico PIR (MicroPython on a Pico W) share about 1,600 identical lines and about 1,000 more that do the
-same jobs but have drifted apart. ApplPi apps (CPython on a Pi running ApplPi OS) need the same web page, settings,
+same jobs but have drifted apart. Juggle apps (CPython on a Pi running Juggle OS) need the same web page, settings,
 API and MQTT. Each fix should be made once.
 
 ## Design
@@ -14,34 +14,34 @@ API and MQTT. Each fix should be made once.
   page's shared style and script (tabs, health chips, forms); MQTT with the retained `status`, `info` and `state`
   topics and Home Assistant discovery; logging; password hashing; a light model (below).
 - **Pico** (MicroPython only): Wi-Fi and the setup hotspot, the captive DNS, Wi-Fi updates and their rollback, the
-  watchdog, NTP and the clock, the BOOTSEL button, the onboard LED. On a Pi, ApplPi OS does all of these.
+  watchdog, NTP and the clock, the BOOTSEL button, the onboard LED. On a Pi, Juggle OS does all of these.
 
 Small differences between the two Pythons (`asyncio` and `uasyncio`, `binascii`, ticks, `gc`) are kept in one
 `compat` module, so the rest is written once.
 
 ### The same on a Pico and a Pi
 
-Whatever a Pico product's page can change, an ApplPi app's can too, through the base, so a product works the same
-on either. Where ApplPi OS owns the setting, the base asks it (below):
+Whatever a Pico product's page can change, a Juggle app's can too, through the base, so a product works the same
+on either. Where Juggle OS owns the setting, the base asks it (below):
 
-| On the page | Pico | ApplPi app |
+| On the page | Pico | Juggle app |
 |---|---|---|
 | The product's own settings, MQTT, the web password, the log level | The product | The same (the app's state, `/data/app-state`) |
-| Updates over the network (`/api/update`, `deploy.ps1 -WiFi`), with a trial and going back by itself | The Pico layer | ApplPi OS installs the new app, which has to keep running, or it puts the old one back |
+| Updates over the network (`/api/update`, `deploy.ps1 -WiFi`), with a trial and going back by itself | The Pico layer | Juggle OS installs the new app, which has to keep running, or it puts the old one back |
 | Restart | The board | The app (systemd starts it again); a Pi restart too |
 | Reset settings | The product | The same (the app's state) |
-| The clock: NTP server, time zone | Offset and summer time rule | ApplPi OS's time zone (a name, as at flashing) and NTP server |
+| The clock: NTP server, time zone | Offset and summer time rule | Juggle OS's time zone (a name, as at flashing) and NTP server |
 | The watchdog (a stalled event loop restarts it) | The board's hardware watchdog | systemd's watchdog for the app (`WatchdogSec`, the base telling it the loop is alive); the Pi's hardware watchdog stays the OS's |
-| The device name | The product | Shown; changed in ApplPi OS's setup mode, which the page restarts into (`/api/setup-mode`): it's the Pi's network name, which SSH and `applpi` know it by |
-| Factory reset (forgets Wi-Fi) | Starts setup mode | `/api/factory-reset`: ApplPi OS forgets its settings and starts setup mode (its hotspot and HTTPS setup page) |
-| Wi-Fi network | Setup mode only | The same: ApplPi OS's setup mode, or flashing |
-| The Wi-Fi fallback: setup mode when Wi-Fi doesn't connect (on or off, after how many minutes, for how many) | The Pico layer (now a fixed 5 attempts, and 10 minutes; to come with Pico PIR) | `/api/wifi`: ApplPi OS's `wifi_fallback` setting (`app-request wifi-fallback`), used at the next start |
+| The device name | The product | Shown; changed in Juggle OS's setup mode, which the page restarts into (`/api/setup-mode`): it's the Pi's network name, which SSH and `juggle` know it by |
+| Factory reset (forgets Wi-Fi) | Starts setup mode | `/api/factory-reset`: Juggle OS forgets its settings and starts setup mode (its hotspot and HTTPS setup page) |
+| Wi-Fi network | Setup mode only | The same: Juggle OS's setup mode, or flashing |
+| The Wi-Fi fallback: setup mode when Wi-Fi doesn't connect (on or off, after how many minutes, for how many) | The Pico layer (now a fixed 5 attempts, and 10 minutes; to come with Pico PIR) | `/api/wifi`: Juggle OS's `wifi_fallback` setting (`app-request wifi-fallback`), used at the next start |
 
-ApplPi OS's setup mode is its roadmap's step 7 (in the release after v0.4): the page offers the name, Wi-Fi fallback
+Juggle OS's setup mode is its roadmap's step 7 (in the release after v0.4): the page offers the name, Wi-Fi fallback
 and factory reset only on an OS that has it (`os.setup` in /api/info, `data-os-setup` on the page). Before that, the
 name and Wi-Fi are set when flashing.
 
-ApplPi OS needs a few things for this (its roadmap's next step): a way for the app, which normally isn't root, to
+Juggle OS needs a few things for this (its roadmap's next step): a way for the app, which normally isn't root, to
 ask it to install a new app version (with the trial and going back), set the time zone and NTP server, restart
 the Pi, and start setup mode, and nothing else. For example, `sudo` allowed for the `app` user on those commands only.
 
@@ -86,7 +86,7 @@ zone on a Pi; the base only asks it for the local time.
 The same topics, messages and Home Assistant discovery on both. The client differs: `mqtt_as` on the Pico (it needs
 MicroPython's `network`), and on CPython the base's own small asyncio client (`mqttclient.py`, MQTT 3.1.1, about 200
 lines), behind the same few calls (connect with a will, publish, subscribe, the next message, close); `base.mqtt`
-reconnects. paho-mqtt was the first thought, but it isn't in ApplPi OS's image, runs its own thread, and is far
+reconnects. paho-mqtt was the first thought, but it isn't in Juggle OS's image, runs its own thread, and is far
 bigger than what's needed.
 
 ### How products use it
@@ -96,7 +96,7 @@ A copy, not a git submodule (decided 2026-10-27): each product keeps the base in
 - A product's repo then works from a plain clone or GitHub's "Download ZIP" (both leave submodules out), and a base
   update is one commit in the product whose diff is the actual change. No `--recursive`, no detached HEAD, no pushing
   two repos in the right order. The Pico's deploy script compiles the copy to `.mpy` as it does the rest of `src/`;
-  an ApplPi app's `deploy.ps1` sends it with the app. Each product moves to a new base when it suits it (after
+  a Juggle app's `deploy.ps1` sends it with the app. Each product moves to a new base when it suits it (after
   testing on its device).
 - `update-base.ps1` (in this repo, run from a product) copies a tagged release into the product's `src/base/` and
   writes `src/base/VERSION`: the tag, the commit and each file's SHA-256. `-From ..\app-base` copies a local working
@@ -116,7 +116,7 @@ MicroPython's modules, so most of it is tested without a device.
 ### 1. The portable layer, with the Unicorn HAT app
 
 Taken from Pico PIR (the newer of the two), and the light model, groups and the schedule from PlasmaStick, as
-`applpi-unicorn` needs them. That app is the first user, so the hooks are shaped by a real product.
+`juggle-unicorn` needs them. That app is the first user, so the hooks are shaped by a real product.
 
 ### 2. Pico PIR onto the base
 
@@ -126,7 +126,7 @@ or off). Checked on the device.
 Decided (2026-10-28):
 - **The Pico layer** is `base/pico/`: Wi-Fi (`wlan`), setup mode (`setup`, with the captive DNS), Wi-Fi updates
   (`ota`), NTP and the clock, the watchdog, BOOTSEL and the onboard LED, the name and the stored-password encryption.
-  The package itself (`base/pico/__init__.py`) is the platform, as `base/pi.py` is on a Pi. An ApplPi app's copy
+  The package itself (`base/pico/__init__.py`) is the platform, as `base/pi.py` is on a Pi. A Juggle app's copy
   carries the folder unused, and a Pico's leaves out `pi.py` and `mqttclient.py`.
 - **Devices carry on as they are.** A Pico on the base reads the files it has now: `config.json` in the same layout
   (the web password as `password_hash`, the MQTT password encrypted as `password_iv` and `password_enc`), and
@@ -136,13 +136,13 @@ Decided (2026-10-28):
 - **The same topics and Home Assistant entities**, so Home Assistant keeps its history: `<base>/state` and `<base>/set`
   for a product that isn't a light, through new hooks (`state`, `set`, `ha_entities`), and the unique ids as now.
 - **The Wi-Fi fallback** becomes three settings in `wlan` (`fallback`, `fallback_after_min`, `fallback_for_min`), as
-  ApplPi OS's `wifi_fallback`: on, after 360 minutes (up to 1440: a router can be slow back after a power cut), for
+  Juggle OS's `wifi_fallback`: on, after 360 minutes (up to 1440: a router can be slow back after a power cut), for
   10 minutes. The page shows them through `/api/wifi`, as on a Pi.
 - **Changing Wi-Fi from the page** (asked for on 2026-10-28: setup mode shouldn't be the only way): on a Pico,
   `POST /api/wifi` with a network restarts onto it, on trial. If it doesn't connect within 5 minutes, the network
   before goes back. A network from setup mode is on the same trial, and goes back to setup mode, so a mistyped
   password doesn't wait for the fallback's hours. On a Pi it needs the OS to take a new network from the app, so it's
-  ApplPi OS's to add (an `app-request wifi`); until then a Pi's page uses setup mode for it.
+  Juggle OS's to add (an `app-request wifi`); until then a Pi's page uses setup mode for it.
 - **Setup mode from the page**: `/api/setup-mode` and `/api/factory-reset` as on a Pi, and the name through
   `/api/name` (a Pico's name is its own to change, `name_editable`).
 - **The clock**: on a Pico, its settings (`device.utc_offset_min`, `dst`, `ntp_server`) are ordinary settings on the
@@ -162,4 +162,4 @@ Checked on the device.
 
 ### 4. A template
 
-A minimal product of each kind (Pico and ApplPi), to start new ones from.
+A minimal product of each kind (Pico and Juggle), to start new ones from.
