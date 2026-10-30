@@ -163,3 +163,12 @@ Checked on the device.
 ### 4. A template
 
 A minimal product of each kind (Pico and Juggle), to start new ones from.
+
+Done (2026-10-30), on v0.4.0: **Juggle Hello** (the example Juggle OS app, rebuilt on the base) and **Pico Hello** (a
+new repo). Each has one setting, a greeting, on its page, the API, its MQTT state and set topics and in Home
+Assistant (a text box), with the base's Device and MQTT tabs (and a Pico's Network tab), deploys over USB or SSH and
+over the network, and tests; their READMEs say how to start a new product from them. Checked: Juggle Hello on a Pi 2
+(all of Juggle OS's checks, the greeting from the API, an update over the network keeping it), Pico Hello on a new
+Pico W (setup mode, the page, the web password, two updates over Wi-Fi; about 96 KB of heap free at rest). Pico
+Hello's `wifi_update.py` reaches a `.local` name by its IPv4 address: with Python 3.14 on Windows, an IPv6 link-local
+address fails to connect, and PlasmaStick's and Pico PIR's copies need the same fix.
