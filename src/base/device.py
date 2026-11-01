@@ -111,7 +111,7 @@ class Device:
             info['light'] = {
                 'state': light.on,
                 'mode': light.mode,
-                'parameters': light.state()['ModeParameters'],  # with an effect's defaults, as MQTT has them
+                'parameters': light.state()['parameters'],  # with an effect's defaults, as MQTT has them
                 'brightness': light.brightness,
                 'modes': light.modes,
                 'alert': {'enabled': self.settings.get('alert', 'enabled'), 'active': light.alerting},

@@ -336,7 +336,7 @@ var Base = (function () {
         b.addEventListener('click', function () {
           expect('mode', m);
           showMode(m);
-          act('/api/mode', m === 'Colour' ? { mode: m, parameters: { Colour: el('colour').value } } : { mode: m });
+          act('/api/mode', m === 'Colour' ? { mode: m, parameters: { colour: el('colour').value } } : { mode: m });
         });
         el('modes').appendChild(b);
         modeButtons.push(b);
@@ -352,14 +352,14 @@ var Base = (function () {
       modeButtons.forEach(function (b) { b.setAttribute('aria-pressed', b.value === mode ? 'true' : 'false'); });
       el('speed_row').hidden = speedModes.indexOf(mode) < 0;
       if (l && document.activeElement !== el('speed')) {
-        var speed = (mode === l.mode && l.parameters.Speed) || (config && config.device.effect_speed) || 5;
+        var speed = (mode === l.mode && l.parameters.speed) || (config && config.device.effect_speed) || 5;
         el('speed').value = speed;
         el('speed_text').textContent = speed;
       }
       var colourOn = colourModes.indexOf(mode) >= 0;
       el('colour').disabled = !colourOn;
       el('kelvin').disabled = mode !== 'Colour';
-      var kelvin = l && l.mode === 'Colour' && l.parameters.Kelvin;
+      var kelvin = l && l.mode === 'Colour' && l.parameters.kelvin;
       if (document.activeElement !== el('kelvin')) {
         if (kelvin) el('kelvin').value = kelvin;
         // A colour picked any other way isn't a white temperature: no figure for it
@@ -373,7 +373,7 @@ var Base = (function () {
     function showDefault(mode) {
       if (!defaultColour) return;
       el('default_swatch').style.backgroundColor = defaultColour;
-      var l = info && info.light, current = l && l.mode === 'Colour' && l.parameters.Colour;
+      var l = info && info.light, current = l && l.mode === 'Colour' && l.parameters.colour;
       el('default_btn').disabled = el('set_default_btn').disabled = mode !== 'Colour' ||
         (!!current && !sending.colour && current.toLowerCase() === defaultColour.toLowerCase());
     }
@@ -393,7 +393,7 @@ var Base = (function () {
       }
       // Don't overwrite a colour while it's being picked
       if (!sending.colour && document.activeElement !== el('colour') && colourModes.indexOf(l.mode) >= 0) {
-        el('colour').value = (l.parameters.Colour || (opts.colours || {})[l.mode] || '#ffb46b').toLowerCase();
+        el('colour').value = (l.parameters.colour || (opts.colours || {})[l.mode] || '#ffb46b').toLowerCase();
       }
       showMode(mode);
     }
@@ -435,7 +435,7 @@ var Base = (function () {
     });
     var sendColour = sender('colour', function (c) {
       var mode = info && colourModes.indexOf(info.light.mode) >= 0 ? info.light.mode : 'Colour';
-      return api('/api/mode', { mode: mode, parameters: { Colour: c } });
+      return api('/api/mode', { mode: mode, parameters: { colour: c } });
     });
     el('colour').addEventListener('input', function () { sendColour(el('colour').value); });
 
@@ -447,7 +447,7 @@ var Base = (function () {
     });
     // The colour showing becomes the default
     el('set_default_btn').addEventListener('click', function () {
-      var l = info && info.light, c = l && l.parameters.Colour;
+      var l = info && info.light, c = l && l.parameters.colour;
       if (!c) return;
       el('set_default_btn').disabled = true;
       api('/api/config', { device: { default_colour: c.toLowerCase() } }).then(function () {
@@ -463,12 +463,12 @@ var Base = (function () {
     el('kelvin').addEventListener('input', function () { el('kelvin_text').textContent = el('kelvin').value + ' K'; });
     el('kelvin').addEventListener('change', function () {
       expect('mode', 'Colour');
-      act('/api/mode', { mode: 'Colour', parameters: { Kelvin: Number(el('kelvin').value) } });
+      act('/api/mode', { mode: 'Colour', parameters: { kelvin: Number(el('kelvin').value) } });
     });
     el('speed').addEventListener('input', function () { el('speed_text').textContent = el('speed').value; });
     el('speed').addEventListener('change', function () {
       var mode = info && shown(info.light, 'mode');
-      if (mode) act('/api/mode', { mode: mode, parameters: { Speed: Number(el('speed').value) } });
+      if (mode) act('/api/mode', { mode: mode, parameters: { speed: Number(el('speed').value) } });
     });
 
     return { act: act, expect: expect };

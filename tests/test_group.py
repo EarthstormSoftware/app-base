@@ -23,20 +23,20 @@ class Rainbows:
 def light(tmp_path):
     settings = Settings(str(tmp_path / 'config.json'), merge(LIGHT_SETTINGS))
     light = Light(Output(), settings, {'Rainbows': Rainbows})
-    light.set(on=True, mode='Colour', parameters={'Colour': '#ff0000'}, brightness=50)
+    light.set(on=True, mode='Colour', parameters={'colour': '#ff0000'}, brightness=50)
     return light
 
 
 def state(on=True, mode='Colour', parameters=None, brightness=50):
-    return {'State': on, 'Mode': mode, 'ModeParameters': parameters or {}, 'Brightness': brightness, 'From': 'other'}
+    return {'state': on, 'mode': mode, 'parameters': parameters or {}, 'brightness': brightness, 'from': 'other'}
 
 
 def test_the_payload_is_the_state_with_the_parameters_that_define_the_mode(light):
     payload = json.loads(lightgroup.group_payload(light, 'unicorn'))
-    assert payload == {'State': True, 'Mode': 'Colour', 'ModeParameters': {'Colour': '#ff0000'}, 'Brightness': 50,
-                       'From': 'unicorn'}
-    light.set(parameters={'Kelvin': 2700})
-    assert json.loads(lightgroup.group_payload(light, 'unicorn'))['ModeParameters'] == {'Kelvin': 2700}
+    assert payload == {'state': True, 'mode': 'Colour', 'parameters': {'colour': '#ff0000'}, 'brightness': 50,
+                       'from': 'unicorn'}
+    light.set(parameters={'kelvin': 2700})
+    assert json.loads(lightgroup.group_payload(light, 'unicorn'))['parameters'] == {'kelvin': 2700}
 
 
 def test_its_own_state_coming_back_changes_nothing(light):
@@ -45,8 +45,8 @@ def test_its_own_state_coming_back_changes_nothing(light):
 
 
 def test_follows_power_colour_and_brightness(light):
-    change = lightgroup.group_change(state(False, parameters={'Colour': '#00FF00'}, brightness=20), light, True)
-    assert change == {'on': False, 'mode': 'Colour', 'parameters': {'Colour': '#00FF00'}, 'brightness': 20}
+    change = lightgroup.group_change(state(False, parameters={'colour': '#00FF00'}, brightness=20), light, True)
+    assert change == {'on': False, 'mode': 'Colour', 'parameters': {'colour': '#00FF00'}, 'brightness': 20}
 
 
 def test_brightness_can_be_its_own(light):
@@ -58,14 +58,14 @@ def test_a_mode_it_doesnt_have_is_left_out(light):
 
 
 def test_a_speed_change_restarts_nothing_but_is_followed(light):
-    light.set(mode='Rainbows', parameters={'Speed': 5})
-    assert lightgroup.group_change(state(mode='Rainbows', parameters={'Speed': 5}), light, True) == {}
-    assert lightgroup.group_change(state(mode='Rainbows', parameters={'Speed': 8}), light, True) == \
-        {'mode': 'Rainbows', 'parameters': {'Speed': 8}}
+    light.set(mode='Rainbows', parameters={'speed': 5})
+    assert lightgroup.group_change(state(mode='Rainbows', parameters={'speed': 5}), light, True) == {}
+    assert lightgroup.group_change(state(mode='Rainbows', parameters={'speed': 8}), light, True) == \
+        {'mode': 'Rainbows', 'parameters': {'speed': 8}}
 
 
-@pytest.mark.parametrize('payload', [[], {'State': 'on', 'Mode': 'Colour', 'Brightness': 50},
-                                     {'State': True, 'Mode': 'Colour', 'Brightness': 0}])
+@pytest.mark.parametrize('payload', [[], {'state': 'on', 'mode': 'Colour', 'brightness': 50},
+                                     {'state': True, 'mode': 'Colour', 'brightness': 0}])
 def test_unusable_states_are_refused(light, payload):
     with pytest.raises(ValueError):
         lightgroup.group_change(payload, light, True)
@@ -135,11 +135,11 @@ def test_a_lights_own_group_change_coming_back_is_ignored_but_not_on_joining(tmp
     assert settings.update({'mqtt': {'group': 'upstairs'}})[0] is None
     m = lightmqtt.LightMqtt(Device(settings, light))
     m.topics = m._topics()
-    old = dict(state(mode='Colour', parameters={'Colour': '#0000ff'}), From='lamp')  # this light's, from before
+    old = dict(state(mode='Colour', parameters={'colour': '#0000ff'}), **{'from': 'lamp'})  # this light's, from before
     assert m._handle(m.topics['group'], json.dumps(old), False) is None
-    assert light.parameters['Colour'].lower() == '#ff0000'  # the newer change stands
+    assert light.parameters['colour'].lower() == '#ff0000'  # the newer change stands
     m._handle(m.topics['group'], json.dumps(old), True)  # retained: the group's state on joining
-    assert light.parameters['Colour'].lower() == '#0000ff'
-    other = dict(state(mode='Colour', parameters={'Colour': '#00ff00'}), From='other')
+    assert light.parameters['colour'].lower() == '#0000ff'
+    other = dict(state(mode='Colour', parameters={'colour': '#00ff00'}), **{'from': 'other'})
     m._handle(m.topics['group'], json.dumps(other), False)
-    assert light.parameters['Colour'].lower() == '#00ff00'
+    assert light.parameters['colour'].lower() == '#00ff00'

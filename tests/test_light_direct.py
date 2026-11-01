@@ -63,7 +63,7 @@ def test_off_clears_once(tmp_path):
 
 def test_an_effect_draws_into_the_strip_with_its_speed_and_the_level(tmp_path):
     lt = light(tmp_path)
-    lt.set(mode='Sparkle', parameters={'Speed': 7}, brightness=100, transition_ms=0)
+    lt.set(mode='Sparkle', parameters={'speed': 7}, brightness=100, transition_ms=0)
     run_for(lt, 100)
     frames = lt.output.strip.frames
     assert len(frames) >= 3  # every 10 ms, as it asks
@@ -88,13 +88,13 @@ class Twinkle:
 
     @staticmethod
     def defaults(light):
-        return {'Speed': light.speed(), 'Style': 'Twinkle'}
+        return {'speed': light.speed(), 'style': 'Twinkle'}
 
 
 def test_the_state_shows_an_effects_defaults_unless_given(tmp_path):
     settings = Settings(str(tmp_path / 'config.json'), merge(LIGHT_SETTINGS))
     lt = Light(Output(), settings, {'Twinkle': Twinkle})
     lt.set(mode='Twinkle')
-    assert lt.state()['ModeParameters'] == {'Speed': 5, 'Style': 'Twinkle'}
-    lt.set(parameters={'Speed': 8})
-    assert lt.state()['ModeParameters'] == {'Speed': 8, 'Style': 'Twinkle'}
+    assert lt.state()['parameters'] == {'speed': 5, 'style': 'Twinkle'}
+    lt.set(parameters={'speed': 8})
+    assert lt.state()['parameters'] == {'speed': 8, 'style': 'Twinkle'}
