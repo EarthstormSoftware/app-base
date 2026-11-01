@@ -29,7 +29,7 @@ ONLINE = 'online'
 
 OFFLINE = 'offline'
 
-DEFAULT_TOPIC_BASE = '/home/device/{name}'
+DEFAULT_TOPIC_BASE = 'home/device/{name}'
 
 DEFAULT_HA_PREFIX = 'homeassistant'
 

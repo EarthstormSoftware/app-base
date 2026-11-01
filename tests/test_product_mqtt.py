@@ -55,10 +55,10 @@ class Device:
         return {'version': self.product.VERSION, 'uptime_s': 5}
 
 
-def test_a_products_topics_are_as_pico_pir_had_them():
+def test_a_products_topics_hang_off_the_topic_base():
     t = mqtt.topics('hall', product_state=True, entities=Sensor.HA_ENTITIES)
-    assert t['state'] == '/home/device/hall/state'
-    assert t['set'] == '/home/device/hall/set'
+    assert t['state'] == 'home/device/hall/state'
+    assert t['set'] == 'home/device/hall/set'
     assert t['ha_motion'] == 'homeassistant/binary_sensor/hall/motion/config'
     assert t['ha_sensing'] == 'homeassistant/switch/hall/sensing/config'
     assert t['set'] not in mqtt.retained(t)
@@ -157,4 +157,4 @@ def test_warnings_and_errors_go_to_the_log_topic_a_few_at_most(tmp_path):
 
 def test_the_log_topic_is_not_retained():
     t = mqtt.topics('hall')
-    assert t['log'] == '/home/device/hall/log' and t['log'] not in mqtt.retained(t)
+    assert t['log'] == 'home/device/hall/log' and t['log'] not in mqtt.retained(t)
