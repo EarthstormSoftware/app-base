@@ -172,3 +172,30 @@ over the network, and tests; their READMEs say how to start a new product from t
 Pico W (setup mode, the page, the web password, two updates over Wi-Fi; about 96 KB of heap free at rest). Pico
 Hello's `wifi_update.py` reaches a `.local` name by its IPv4 address: with Python 3.14 on Windows, an IPv6 link-local
 address fails to connect, and PlasmaStick's and Pico PIR's copies need the same fix.
+
+### 5. 1.0
+
+What a product, a page or a client relies on, read through as Juggle OS's app contract was (2026-11-01), so 1.x only
+adds to it: the product's hooks and the `base.*` names it imports, the HTTP API, the MQTT topics and payloads and the
+Home Assistant ids, the settings files, and what a page uses of `base.js` (`Base.*`, the `data-*` attributes and the
+shared tabs). Everything must still fit the smallest Pico. Changed before the freeze:
+
+- **The hooks, all listed**: `device.py`'s list was missing `RESET_KEEPS` and a Pico's `SETUP_SSID` and
+  `NAME_PREFIX`, and the README's half of them.
+- **Juggle OS by `JUGGLE` only**: `pi.py` no longer looks for `app-request` or reads it, which the app contract
+  rules out; a Juggle app on App Base 1.0 needs Juggle OS 1.0.
+- **No `plasmastick/group/`**: the bridge for PlasmaStick before App Base; every PlasmaStick is on it now.
+- **The light's own API**: `light.remake()` (an effect made again, for a product whose settings change how it
+  draws) and `light.listeners`, so no product touches the light's private parts (PlasmaStick did).
+- **`device.change(section, values)`**: a product's settings changed from MQTT (or anywhere but the page) as the page
+  does it, applied, published, and with a restart for one that needs it. Each product did the first two itself, and
+  none restarted.
+- **The shared tabs come from the base**: the Device, MQTT and (on a Pico) Network tabs were about 155 lines copied
+  into every product's page, outside the copy check; the page now says where they go.
+- **One key style**: the light's MQTT payloads and the mode parameters are snake_case, as the HTTP API and the
+  settings are (`{"state", "mode", "parameters", "brightness"}`, `colour`, `speed`, ...). They were PlasmaStick 1.x's
+  (`"State"`, `"ModeParameters"`). The modes' names stay as they are (Home Assistant shows them as effects).
+- **`home/device/{name}`** as the default topic base, without the leading slash (an empty first level, which `home/#`
+  doesn't match). A device keeps the topic base it has saved; the Earthstorm devices were moved to it by hand.
+- **`os` in a Pi's `/api/info`** (`version`, `build`, `slot`) comes from files outside the app contract, so each may
+  be null. They could join the contract in a Juggle OS minor release.
