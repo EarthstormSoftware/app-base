@@ -671,6 +671,29 @@ var Base = (function () {
     });
   }
 
+  // The display's rotation (the OS's, from Juggle 1.1): shown on a Pi with a display (or one already turned), in
+  // display_rotation, saved by display_save, which restarts the Pi
+  function display() {
+    if (!el('display_save')) return;
+    var loaded = false;
+    infoListeners.push(function (i) {
+      if (loaded || !(i.os && i.os.display)) return;
+      loaded = true;
+      api('/api/display').then(function (d) {
+        el('display_rotation').value = String(d.rotation);
+        document.querySelectorAll('[data-os-display]').forEach(function (n) { n.hidden = !(d.connected || d.rotation); });
+      }).catch(function (e) { say('display_msg', 'Could not load the display settings: ' + e.message); });
+    });
+    el('display_save').addEventListener('click', function () {
+      if (!confirm('Turn the display and restart the Pi? It\'s back in about a minute.')) return;
+      say('display_msg', 'Saving…', true);
+      api('/api/display', { rotation: parseInt(el('display_rotation').value, 10) }).then(function () {
+        say('display_msg', 'Saved: restarting the Pi… (about a minute)', true);
+        waitForRestart(el('display_msg'));
+      }).catch(function (e) { say('display_msg', 'Not saved: ' + e.message); });
+    });
+  }
+
   // Renaming a device whose name is its own (a Pico's): the field device_name, saved by rename_save (POST /api/name),
   // from the next start
   function rename() {
@@ -710,6 +733,15 @@ var Base = (function () {
     '<input type="number" id="wifi_fallback_for" min="5" max="120" step="1"></div></div>' +
     '<button type="button" class="reset" id="wifi_save">Save</button>' +
     '<p class="msg" id="wifi_msg" role="status" aria-live="polite"></p>';
+
+  var DISPLAY = '<div data-os-display hidden><div class="sec">Display</div><div class="frow"><div class="field">' +
+    '<label for="display_rotation">Rotation</label><select id="display_rotation" aria-describedby="display_help">' +
+    '<option value="0">Normal</option><option value="90">Turned 90° clockwise</option>' +
+    '<option value="180">Upside down (180°)</option><option value="270">Turned 90° anticlockwise (270°)</option>' +
+    '</select></div></div><p class="note" id="display_help">The Pi\'s screen: its picture and touch screen turn ' +
+    'together. The Pi restarts to use it, and keeps it through updates and a factory reset.</p>' +
+    '<button type="button" class="reset" id="display_save">Save &amp; Restart</button>' +
+    '<p class="msg" id="display_msg" role="status" aria-live="polite"></p></div>';
 
   function wifiChange(where, who, password) {
     return '<div data-wifi-change hidden><p class="note">' + where + ' <b id="wifi_current">&hellip;</b>. A new network ' +
@@ -768,7 +800,7 @@ var Base = (function () {
         'long as set below, then carries on with its settings unless new ones are saved there.</p>' +
         '<div class="buttons"><button type="button" class="btn-full quiet" data-setup-mode data-msg="wifi_msg" ' +
         'data-confirm="Restart the Pi into setup mode? This page goes away until it\'s back.">Rename (setup mode)…</button></div>' +
-        FALLBACK + '</div>';
+        FALLBACK + '</div>' + DISPLAY;
     rest += '<div class="sec">Restart and Reset</div><p class="note">Reset puts every setting on these pages back to its ' +
       'default (the web password too)' + (pico ? ', but keeps the Wi-Fi network' + slot('keeps', '') +
         '. A factory reset also forgets the name and Wi-Fi, and starts setup mode.'
@@ -866,6 +898,7 @@ var Base = (function () {
     settingsForms();
     actions();
     wifi();
+    display();
     rename();
     setInterval(function () { if (!document.hidden) refresh(); }, 3000);
     document.addEventListener('visibilitychange', function () { if (!document.hidden) refresh(); });

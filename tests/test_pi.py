@@ -23,7 +23,8 @@ def os_request(monkeypatch):
         given_in.append(given)
         if args == ('settings',):
             return json.dumps({'time_zone': 'Europe/London', 'ntp': '',
-                               'wifi_fallback': {'enabled': True, 'after_minutes': 5, 'for_minutes': 10}})
+                               'wifi_fallback': {'enabled': True, 'after_minutes': 5, 'for_minutes': 10},
+                               'display': {'connected': True, 'rotation': 180}})
         return ''
     monkeypatch.setattr(pi, '_request', request)
     given.asked = asked
@@ -48,6 +49,32 @@ def test_without_a_usable_juggle_nothing_is_offered_or_asked(os_request, value):
     for ask in (pi.setup_mode, pi.factory_reset, pi.wifi_fallback, lambda: pi.change_wifi('Upstairs', 'secret')):
         with pytest.raises(pi.RequestError, match='Juggle OS 1.0'):
             ask()
+    assert os_request.asked == []
+
+
+def test_the_display_comes_in_juggle_1_1(os_request):
+    os_request('1.0')
+    assert pi.os_display() is False
+    for ask in (pi.display, lambda: pi.set_display_rotation(90)):
+        with pytest.raises(pi.RequestError, match='Juggle OS 1.1'):
+            ask()
+    assert os_request.asked == []
+    os_request('1.1')
+    assert pi.os_display() is True
+
+
+def test_the_display_rotation_comes_from_the_os_and_goes_back_to_it(os_request):
+    os_request('1.1')
+    assert pi.display() == {'connected': True, 'rotation': 180}
+    pi.set_display_rotation(90)
+    assert os_request.asked[-1] == ['display-rotation', '90']
+
+
+@pytest.mark.parametrize('rotation', [45, -90, 360])
+def test_a_rotation_that_isnt_one_isnt_asked(os_request, rotation):
+    os_request('1.1')
+    with pytest.raises(pi.RequestError, match='0, 90, 180 or 270'):
+        pi.set_display_rotation(rotation)
     assert os_request.asked == []
 
 
