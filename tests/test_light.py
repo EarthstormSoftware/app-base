@@ -58,7 +58,7 @@ def test_an_alert_flashes_then_the_light_carries_on(tmp_path, clock):
     assert first(light, clock[0] + 600) == (0, 255, 0)
     assert first(light, clock[0] + 2100) == (0, 0, 0)  # over: back to off
     assert not light.alerting and told == [True, False]
-    assert light.state()['State'] is False
+    assert light.state()['state'] is False
 
 
 def test_an_alert_again_starts_it_again_without_telling_twice(tmp_path, clock):
@@ -73,8 +73,8 @@ def test_an_alert_again_starts_it_again_without_telling_twice(tmp_path, clock):
     assert told == [True]
 
 
-@pytest.mark.parametrize('change, error', [({'colour': 'red'}, 'Colour'), ({'seconds': 0}, 'Seconds'),
-                                           ({'on_ms': 10}, 'OnMs'), ({'brightness': 101}, 'Brightness')])
+@pytest.mark.parametrize('change, error', [({'colour': 'red'}, 'colour'), ({'seconds': 0}, 'seconds'),
+                                           ({'on_ms': 10}, 'on_ms'), ({'brightness': 101}, 'brightness')])
 def test_bad_alerts_are_refused(tmp_path, clock, change, error):
     assert error in make(tmp_path, alerts=True).alert(**change)
 
@@ -84,3 +84,25 @@ def test_a_finished_effect_turns_the_light_off(tmp_path, clock):
     light.set(on=True, mode='Once')
     pixels, _ = light.frame(clock[0])
     assert pixels == [(0, 0, 0)] * 4 and light.on is False
+
+
+class Counted:
+    """An effect that counts how often it's made."""
+    made = 0
+
+    def __init__(self, count, parameters, light):
+        Counted.made += 1
+
+    def frame(self, now):
+        return [(255, 255, 255)] * 4
+
+
+def test_remake_makes_the_effect_again(tmp_path, clock):
+    light = make(tmp_path, modes={'Counted': Counted})
+    light.set(on=True, mode='Counted')
+    light.frame(clock[0])
+    light.frame(clock[0] + 20)
+    made = Counted.made
+    light.remake()  # a product setting that changes how it draws
+    light.frame(clock[0] + 40)
+    assert Counted.made == made + 1

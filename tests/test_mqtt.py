@@ -62,11 +62,11 @@ def test_info_has_the_figures_the_platform_has():
 
 
 def test_home_assistant_state_in_colour_and_white():
-    state = {'State': True, 'Mode': 'Colour', 'ModeParameters': {'Colour': '#ff8000'}, 'Brightness': 50}
+    state = {'state': True, 'mode': 'Colour', 'parameters': {'colour': '#ff8000'}, 'brightness': 50}
     payload = json.loads(lightmqtt.ha_state_payload(state))
     assert payload == {'state': 'ON', 'color_mode': 'rgb', 'effect': 'Colour', 'brightness': 50,
                        'color': {'r': 255, 'g': 128, 'b': 0}}
-    state['ModeParameters'] = {'Colour': '#ffb46b', 'Kelvin': 2700}
+    state['parameters'] = {'colour': '#ffb46b', 'kelvin': 2700}
     payload = json.loads(lightmqtt.ha_state_payload(state))
     assert payload['color_mode'] == 'color_temp' and payload['color_temp'] == 370
 
@@ -81,16 +81,15 @@ def test_discovery_describes_the_light_and_its_device():
 
 
 def test_control_messages():
-    assert lightmqtt.parse_control({'MessageType': 'StateChange', 'Parameters': {'State': False}}) == {'on': False}
-    assert lightmqtt.parse_control({'MessageType': 'BrightnessChange', 'Parameters': {'Brightness': 20}}) == \
-        {'brightness': 20}
-    assert lightmqtt.parse_control({'MessageType': 'ModeChange',
-                               'Parameters': {'Mode': 'Colour', 'ModeParameters': {'Colour': '#00ff00'}}}) == \
-        {'mode': 'Colour', 'parameters': {'Colour': '#00ff00'}}
+    assert lightmqtt.parse_control({'state': False}) == {'on': False}
+    assert lightmqtt.parse_control({'brightness': 20}) == {'brightness': 20}
+    assert lightmqtt.parse_control({'mode': 'Colour', 'parameters': {'colour': '#00ff00'}}) == \
+        {'mode': 'Colour', 'parameters': {'colour': '#00ff00'}}
+    assert lightmqtt.parse_control({'state': True, 'brightness': 60}) == {'on': True, 'brightness': 60}
 
 
-@pytest.mark.parametrize('payload', [[], {'MessageType': 'Explode'}, {'MessageType': 'StateChange'},
-                                     {'MessageType': 'StateChange', 'Parameters': {'State': 'on'}}])
+@pytest.mark.parametrize('payload', [[], {}, {'explode': True}, {'state': 'on'},
+                                     {'MessageType': 'StateChange', 'Parameters': {'State': False}}])
 def test_bad_control_messages_are_refused(payload):
     with pytest.raises(ValueError):
         lightmqtt.parse_control(payload)
@@ -101,8 +100,8 @@ def test_home_assistant_commands():
     assert lightmqtt.parse_ha_command({'state': 'ON', 'brightness': 49.6, 'transition': 2}, modes) == \
         {'on': True, 'brightness': 50, 'transition_ms': 2000}
     assert lightmqtt.parse_ha_command({'color': {'r': 1, 'g': 2, 'b': 3}}, modes) == \
-        {'mode': 'Colour', 'parameters': {'Colour': '#010203'}}
-    assert lightmqtt.parse_ha_command({'color_temp': 370}, modes) == {'mode': 'Colour', 'parameters': {'Kelvin': 2703}}
+        {'mode': 'Colour', 'parameters': {'colour': '#010203'}}
+    assert lightmqtt.parse_ha_command({'color_temp': 370}, modes) == {'mode': 'Colour', 'parameters': {'kelvin': 2703}}
     assert lightmqtt.parse_ha_command({'effect': 'Rainbows'}, modes) == {'mode': 'Rainbows'}
     assert lightmqtt.parse_ha_command({'state': 'ON', 'brightness': 0}, modes)['brightness'] == 1
 
@@ -125,8 +124,8 @@ def test_topic_matching(pattern, topic, matches):
 
 def test_alert_messages():
     assert lightmqtt.parse_alert('') == {}
-    assert lightmqtt.parse_alert('{"Colour": "#0000ff", "Seconds": 5, "Other": 1}') == {'colour': '#0000ff', 'seconds': 5}
-    assert lightmqtt.parse_alert('{"Active": false}') is None
+    assert lightmqtt.parse_alert('{"colour": "#0000ff", "seconds": 5, "other": 1}') == {'colour': '#0000ff', 'seconds': 5}
+    assert lightmqtt.parse_alert('{"active": false}') is None
 
 
 @pytest.mark.parametrize('payload', [{}, {'state': 'on'}, {'effect': 'Fire'}, {'brightness': 101},

@@ -38,9 +38,18 @@ LIGHT_MODES = {'Rainbows': Rainbows}   # a light: its effects beyond Colour
 def output(device): ...    # a light: its LEDs (count, show(frame))
 ```
 
-and optionally `MANUFACTURER` and `MODEL` (for Home Assistant), `info(device)`, `routes(app, device)`,
-`applied(device, changed)`, `tasks(device)`, `mqtt_topics(device)` and `mqtt_message(device, topic, text)`.
-`device.py` lists them. Its `main.py` is `import product; from base.device import run; run(product)`, and its page
+and optionally:
+
+- `MANUFACTURER` and `MODEL` (for Home Assistant), `RESET_KEEPS` (settings a reset keeps), `www` (its page's folder)
+- `info(device)`, `routes(app, device)`, `applied(device, changed)`, `tasks(device)`
+- `mqtt_topics(device)` and `mqtt_message(device, topic, text)`; not a light: `state(device)`, `set(device, command)`,
+  `scheduled(device, on)`, and `HA_ENTITIES` with `ha_entity(device, key, topics)`
+- a light: `MIN_LEVEL`, `MODE_ORDER`
+- on a Pico: `SETUP_SSID` and `NAME_PREFIX` (required), `setup_held()`, `Codec` (a settings file laid out its own way)
+
+`device.py` says what each does, and what a product may use of the device: `settings`, `change(updates)` (settings
+changed as the page does), `state_changed()`, `light`, `info()` and `platform`. Its `main.py` is
+`import product; from base.device import run; run(product)` (on a Pico, through `app.py`), and its page
 (`www/index.html`) uses `/base.css` and `/base.js`.
 
 ## Using it in a product
