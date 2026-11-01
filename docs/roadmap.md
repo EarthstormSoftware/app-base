@@ -201,3 +201,11 @@ shared tabs). Everything must still fit the smallest Pico. Changed before the fr
   doesn't match). A device keeps the topic base it has saved; the Earthstorm devices were moved to it by hand.
 - **`os` in a Pi's `/api/info`** (`version`, `build`, `slot`) comes from files outside the app contract, so each may
   be null. They could join the contract in a Juggle OS minor release.
+
+Done (2026-11-01), as v1.0.0: every product on it (Juggle Hello, Juggle Unicorn 0.5.0, Pico Hello, Pico PIR 2.1.0,
+PlasmaStick 3.0.0), their pages checked in a browser, and on the devices: Juggle Hello and Juggle Unicorn on Juggle OS
+v1.0.0 (all of its checks), Pico Hello on a new Pico W (setup mode, the page, settings), Pico PIR's HTTP smoke test,
+PlasmaStick's whole smoke test (the new control and state payloads, Home Assistant), and a group following on
+home/group. Every device moved to home/device/{name}, clearing its old topics itself. Free memory on a Pico is as it
+was or more. Open: a PlasmaStick can stall for 30 s once just after a restart, so its watchdog restarts it (seen on
+2.0 too); a new board restarted with MQTT and discovery didn't, so it's looked at on a board that does, by USB.
