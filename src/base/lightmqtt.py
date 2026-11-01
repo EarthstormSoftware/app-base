@@ -13,7 +13,7 @@ A light's MQTT, next to what every device has (base.mqtt): loaded only for a lig
                        discovery (if it's on)
 
 Groups (mqtt.group; base.lightgroup, loaded only for a light in one): lights with the same group name follow each other through a retained topic,
-earthstorm/group/<group>, carrying {"State", "Mode", "ModeParameters", "Brightness", "From"}. Each member publishes its
+home/group/<group>, carrying {"State", "Mode", "ModeParameters", "Brightness", "From"}. Each member publishes its
 own changes there (not the ones it makes following the group), and one that starts or joins takes the group's state.
 A member follows power, and brightness unless mqtt.group_brightness is off, and the mode only if it has it.
 
@@ -226,9 +226,7 @@ class LightMqtt(Mqtt):
             enabled = json.loads(text).get('Enabled')
             if not isinstance(enabled, bool):
                 return 'Enabled must be true or false'
-            error, changed = self.device.settings.update({'alert': {'enabled': enabled}})
-            if not error:
-                self.device.applied(changed)
+            error = self.device.change({'alert': {'enabled': enabled}})
             self._changed.set()  # the switch's state, even if it didn't change
             return error
         if self._group and topic == t.get('group'):

@@ -124,7 +124,7 @@ def watch_topic_error(value):
 
 
 # A light's group topic (base.lightmqtt)
-GROUP_PREFIX = 'earthstorm/group/'
+GROUP_PREFIX = 'home/group/'
 
 
 def topics(name, base=DEFAULT_TOPIC_BASE, ha_prefix=DEFAULT_HA_PREFIX, light=False, sensors=(), group='',

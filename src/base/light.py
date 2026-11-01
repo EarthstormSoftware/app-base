@@ -187,6 +187,11 @@ class Light:
         self._wake.set()
         return None
 
+    def remake(self):
+        """Makes the effect again: for a product setting that changes how its effects draw (an LED layout, say)."""
+        self._effect = None
+        self._wake.set()
+
     def speed(self):
         """The current animation's speed (1-10): its own, or the setting's."""
         return self.parameters.get('Speed') or self.settings.get('device', 'effect_speed')

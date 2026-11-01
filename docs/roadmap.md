@@ -184,7 +184,9 @@ shared tabs). Everything must still fit the smallest Pico. Changed before the fr
   `NAME_PREFIX`, and the README's half of them.
 - **Juggle OS by `JUGGLE` only**: `pi.py` no longer looks for `app-request` or reads it, which the app contract
   rules out; a Juggle app on App Base 1.0 needs Juggle OS 1.0.
-- **No `plasmastick/group/`**: the bridge for PlasmaStick before App Base; every PlasmaStick is on it now.
+- **Groups on `home/group/<group>`**, beside `home/device/<name>` (it was `earthstorm/group/`), and no
+  `plasmastick/group/`: the bridge for PlasmaStick before App Base; every PlasmaStick is on it now. A group's lights
+  move together, as its payload changes too (below).
 - **The light's own API**: `light.remake()` (an effect made again, for a product whose settings change how it
   draws) and `light.listeners`, so no product touches the light's private parts (PlasmaStick did).
 - **`device.change(section, values)`**: a product's settings changed from MQTT (or anywhere but the page) as the page

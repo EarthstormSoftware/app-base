@@ -87,7 +87,7 @@ def test_group_names():
 
 def test_group_topics_are_never_cleared():
     t = mqtt.topics('lamp', light=True, group='lounge')
-    assert t['group'] == 'earthstorm/group/lounge' and 'group_old' not in t
+    assert t['group'] == 'home/group/lounge' and 'group_old' not in t
     assert t['group'] not in mqtt.retained(t)
 
 

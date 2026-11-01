@@ -84,3 +84,25 @@ def test_a_finished_effect_turns_the_light_off(tmp_path, clock):
     light.set(on=True, mode='Once')
     pixels, _ = light.frame(clock[0])
     assert pixels == [(0, 0, 0)] * 4 and light.on is False
+
+
+class Counted:
+    """An effect that counts how often it's made."""
+    made = 0
+
+    def __init__(self, count, parameters, light):
+        Counted.made += 1
+
+    def frame(self, now):
+        return [(255, 255, 255)] * 4
+
+
+def test_remake_makes_the_effect_again(tmp_path, clock):
+    light = make(tmp_path, modes={'Counted': Counted})
+    light.set(on=True, mode='Counted')
+    light.frame(clock[0])
+    light.frame(clock[0] + 20)
+    made = Counted.made
+    light.remake()  # a product setting that changes how it draws
+    light.frame(clock[0] + 40)
+    assert Counted.made == made + 1
