@@ -87,8 +87,8 @@ def test_group_names():
 
 def test_group_topics_are_never_cleared():
     t = mqtt.topics('lamp', light=True, group='lounge')
-    assert t['group'] == 'earthstorm/group/lounge' and t['group_old'] == 'plasmastick/group/lounge'
-    assert t['group'] not in mqtt.retained(t) and t['group_old'] not in mqtt.retained(t)
+    assert t['group'] == 'earthstorm/group/lounge' and 'group_old' not in t
+    assert t['group'] not in mqtt.retained(t)
 
 
 class Platform:
@@ -136,9 +136,8 @@ def test_a_lights_own_group_change_coming_back_is_ignored_but_not_on_joining(tmp
     m = lightmqtt.LightMqtt(Device(settings, light))
     m.topics = m._topics()
     old = dict(state(mode='Colour', parameters={'Colour': '#0000ff'}), From='lamp')  # this light's, from before
-    for topic in (m.topics['group'], m.topics['group_old']):
-        assert m._handle(topic, json.dumps(old), False) is None
-        assert light.parameters['Colour'].lower() == '#ff0000'  # the newer change stands
+    assert m._handle(m.topics['group'], json.dumps(old), False) is None
+    assert light.parameters['Colour'].lower() == '#ff0000'  # the newer change stands
     m._handle(m.topics['group'], json.dumps(old), True)  # retained: the group's state on joining
     assert light.parameters['Colour'].lower() == '#0000ff'
     other = dict(state(mode='Colour', parameters={'Colour': '#00ff00'}), From='other')

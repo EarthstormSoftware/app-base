@@ -15,8 +15,7 @@ A light's MQTT, next to what every device has (base.mqtt): loaded only for a lig
 Groups (mqtt.group; base.lightgroup, loaded only for a light in one): lights with the same group name follow each other through a retained topic,
 earthstorm/group/<group>, carrying {"State", "Mode", "ModeParameters", "Brightness", "From"}. Each member publishes its
 own changes there (not the ones it makes following the group), and one that starts or joins takes the group's state.
-A member follows power, and brightness unless mqtt.group_brightness is off, and the mode only if it has it. Until
-PlasmaStick moves to App Base, it uses plasmastick/group/<group>: lights here publish to both and listen to both.
+A member follows power, and brightness unless mqtt.group_brightness is off, and the mode only if it has it.
 
 mqtt.alert_topic, if set, is another device's topic to watch: a message on it starts an alert (see
 base.lightwatch, loaded only then), so a motion sensor can ring the light like a doorbell. The discovery configs
@@ -193,10 +192,8 @@ class LightMqtt(Mqtt):
 
     async def _up_group(self, client):
         if self.group:
-            # The group's retained state arrives straight away, and the light takes it: PlasmaStick's topic second,
-            # as it's the one they use until they're on App Base
+            # The group's retained state arrives straight away, and the light takes it
             await client.subscribe(self.topics['group'])
-            await client.subscribe(self.topics['group_old'])
 
     async def _publish_state(self, client):
         try:
@@ -234,10 +231,10 @@ class LightMqtt(Mqtt):
                 self.device.applied(changed)
             self._changed.set()  # the switch's state, even if it didn't change
             return error
-        if self._group and topic in (t.get('group'), t.get('group_old')):
+        if self._group and topic == t.get('group'):
             payload = json.loads(text)
             if not retained and isinstance(payload, dict) and payload.get('From') == self.name:
-                # This light's own change coming back (twice: both group topics): a newer one may have followed it.
+                # This light's own change coming back: a newer one may have followed it.
                 # The retained one on joining is still taken, as the group's state
                 return None
             change = self._group.group_change(payload, light,

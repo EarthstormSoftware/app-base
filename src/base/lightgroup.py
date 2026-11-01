@@ -62,6 +62,5 @@ async def publish(mq, client):
             mq._group_changed.clear()
             payload = group_payload(mq.light, mq.name)
             await client.publish(mq.topics['group'], payload, retain=True)
-            await client.publish(mq.topics['group_old'], payload, retain=True)
     except OSError:
         client.close()
