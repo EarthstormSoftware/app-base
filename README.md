@@ -51,7 +51,8 @@ and optionally:
 `device.py` says what each does, and what a product may use of the device: `settings`, `change(updates)` (settings
 changed as the page does), `state_changed()`, `light`, `info()` and `platform`. Its `main.py` is
 `import product; from base.device import run; run(product)` (on a Pico, through `app.py`), and its page
-(`www/index.html`) uses `/base.css` and `/base.js`.
+(`www/index.html`) uses `/base.css` and `/base.js`. On a Pi with a display, the Display section (its rotation) is on
+the Device tab, or where the page puts `<div data-base-display></div>`, for a product with a tab for its screen.
 
 ## Using it in a product
 

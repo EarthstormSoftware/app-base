@@ -716,7 +716,8 @@ var Base = (function () {
   // after the product's own (the .group elements it has). The <script> tag that loads this file says the platform
   // (data-platform="pico"; a Juggle app's otherwise) and whether the product is a light (data-light). A product's own
   // words replace a slot's default: <template data-slot="name">...</template> in the pane. Built as the file loads, so
-  // the product's script finds the fields; the markup is the base's own, so it's set as HTML.
+  // the product's script finds the fields; the markup is the base's own, so it's set as HTML. A Pi's Display section
+  // goes where the product puts <div data-base-display></div> (a tab of its own for the screen), or on the Device tab.
   var script = document.currentScript, pico = script && script.dataset.platform === 'pico',
     isLight = !!(script && 'light' in script.dataset);
 
@@ -881,6 +882,8 @@ var Base = (function () {
         if (s.dataset.slot in slots) s.innerHTML = slots[s.dataset.slot];
       });
     });
+    var place = document.querySelector('[data-base-display]'), section = document.querySelector('[data-os-display]');
+    if (place && section) place.parentNode.replaceChild(section, place);
     // A Pico's time zones, as offsets in minutes: every hour, and the half and quarter hours in use
     if (el('utc_offset_min')) {
       [-720, -660, -600, -570, -540, -480, -420, -360, -300, -240, -210, -180, -120, -60, 0, 60, 120, 180, 210, 240,
