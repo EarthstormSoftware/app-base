@@ -37,7 +37,7 @@ class Sparkle:
 
 def light(tmp_path, on=True):
     settings = Settings(str(tmp_path / 'config.json'), merge(LIGHT_SETTINGS))
-    settings.update({'device': {'default_state': on, 'transition_ms': 0, 'default_brightness': 100}})
+    settings.update({'device': {'power_on': 'restore' if on else 'off', 'transition_ms': 0, 'default_brightness': 100}})
     return Light(Output(), settings, {'Sparkle': Sparkle})
 
 

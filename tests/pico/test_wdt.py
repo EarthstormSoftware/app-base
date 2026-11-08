@@ -55,3 +55,12 @@ def test_stop_and_disable_clear_the_enable_bit(registers):
     assert not dog._timer.running
     assert registers[watchdog._CTRL_CLR] == 1 << 30
     assert watchdog._CTRL_CLR == 0x40058000 + 0x3000 and watchdog._SCRATCH0 == 0x4005800C
+
+
+def test_a_start_after_a_power_cut_is_told_from_a_restart():
+    import machine
+    from base.pico import wdt
+    machine.mem32[wdt._SCRATCH1] = 0  # as the power coming on leaves it
+    assert wdt.powered_up()
+    assert not wdt.powered_up()
+    assert not wdt.powered_up()

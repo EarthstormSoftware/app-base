@@ -3,7 +3,7 @@ The platform for a Juggle OS app: what the OS does that a Pico does itself.
 
 The app's state (config.json and anything else it writes) is in JUGGLE_STATE (/data/app-state), as the rest of the Pi
 is read-only. The device name is the Pi's: it's shown, and changed in the OS's setup mode (SSH and juggle know the Pi
-by it). A restart ends the app, which systemd starts again.
+by it). A restart ends the app, which systemd starts again; powered_up() tells that from the power coming on.
 
 What the OS does for the app, it asks for through app-request (the app user may run it as root by sudo): a new
 version of itself, on trial; the time zone and time server; restarting the Pi; setup mode (to rename the Pi, or change
@@ -16,10 +16,13 @@ restarts the app if its event loop stops (watchdog()).
 import asyncio
 import json
 import os
+import signal
 import socket
 import subprocess
 import time
 from pathlib import Path
+
+from base.compat import write_atomically
 
 NAME_EDITABLE = False
 STATE = os.environ.get('JUGGLE_STATE', str(Path.cwd() / 'state'))
@@ -35,6 +38,33 @@ def state_path(name):
 
 def device_name():
     return socket.gethostname()
+
+
+BOOT_ID = '/proc/sys/kernel/random/boot_id'
+
+
+def powered_up():
+    """Whether this start is the power coming on (or back after a cut). Not if the Pi hasn't restarted since the app
+    last ran (the kernel's boot id is the same), nor if the app was stopped as the Pi shut down cleanly (on_stop): a
+    restart, an update. Call once, as it notes this start for the next."""
+    seen, stopped = state_path('boot-id'), state_path('stopped')
+    boot, last = _read(BOOT_ID), _read(seen)
+    clean = os.path.exists(stopped)
+    if boot is not None:
+        write_atomically(seen, boot)
+    if clean:
+        os.remove(stopped)
+    return boot != last and not clean
+
+
+def on_stop(keep):
+    """When systemd stops the app (a clean shutdown or restart; a power cut gives no warning): keep() is called, and
+    the stop noted for powered_up()."""
+    def stop(signum, frame):
+        keep()
+        write_atomically(state_path('stopped'), '')
+        os._exit(0)
+    signal.signal(signal.SIGTERM, stop)
 
 
 def _read(path):

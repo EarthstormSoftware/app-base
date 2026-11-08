@@ -104,3 +104,43 @@ def test_a_new_wifi_network_goes_to_the_os_with_its_password_on_stdin(os_request
     pi.change_wifi('Upstairs', 'secret password')
     assert os_request.asked[-1] == ['wifi', 'Upstairs']  # not the password: it would show in the process list
     assert os_request.stdin[-1] == 'secret password\n'
+
+
+def boots(monkeypatch, tmp_path, boot_id):
+    (tmp_path / 'boot_id').write_text(boot_id + '\n')
+    monkeypatch.setattr(pi, 'BOOT_ID', str(tmp_path / 'boot_id'))
+    monkeypatch.setattr(pi, 'STATE', str(tmp_path / 'state'))
+
+
+def test_a_new_boot_after_no_clean_stop_is_the_power_coming_on(monkeypatch, tmp_path):
+    boots(monkeypatch, tmp_path, 'one')
+    assert pi.powered_up()
+    boots(monkeypatch, tmp_path, 'two')
+    assert pi.powered_up()
+
+
+def test_the_app_restarting_on_the_same_boot_isnt(monkeypatch, tmp_path):
+    boots(monkeypatch, tmp_path, 'one')
+    pi.powered_up()
+    assert not pi.powered_up()
+
+
+def test_a_clean_shutdown_isnt_and_only_counts_once(monkeypatch, tmp_path):
+    boots(monkeypatch, tmp_path, 'one')
+    pi.powered_up()
+    (tmp_path / 'state' / 'stopped').write_text('')
+    boots(monkeypatch, tmp_path, 'two')
+    assert not pi.powered_up()
+    boots(monkeypatch, tmp_path, 'three')
+    assert pi.powered_up()
+
+
+def test_stopping_keeps_the_light_and_says_it_was_clean(monkeypatch, tmp_path):
+    import signal
+    boots(monkeypatch, tmp_path, 'one')
+    kept, handlers, exits = [], {}, []
+    monkeypatch.setattr(pi.signal, 'signal', lambda number, handler: handlers.__setitem__(number, handler))
+    monkeypatch.setattr(pi.os, '_exit', exits.append)
+    pi.on_stop(lambda: kept.append(True))
+    handlers[signal.SIGTERM](signal.SIGTERM, None)
+    assert kept == [True] and exits == [0] and (tmp_path / 'state' / 'stopped').exists()

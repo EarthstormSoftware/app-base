@@ -48,3 +48,39 @@ def test_a_change_that_needs_a_restart_restarts(tmp_path):
         await asyncio.sleep(0.5)
     asyncio.run(change())
     assert restarted == [True]
+
+
+def light_product():
+    class Output:
+        count = 1
+
+        def show(self, frame):
+            pass
+
+    return types.SimpleNamespace(NAME='Lamp', VERSION='1.0.0', __file__=__file__, SETTINGS={}, LIGHT_MODES={},
+                                 output=lambda device: Output())
+
+
+def test_a_reset_brings_back_the_setup_default(tmp_path):
+    device = Device(light_product(), platform(tmp_path))
+    device.light.set(parameters={'colour': '#00ff00'}, brightness=20)
+    device.change({'device': device.light.look()})
+    device.light.keep()
+    assert (tmp_path / 'light.json').exists()
+    device.reset()
+    assert not (tmp_path / 'light.json').exists()
+    light = Device(light_product(), platform(tmp_path)).light
+    assert (light.parameters, light.brightness) == ({'colour': '#ffb46b'}, 66)
+
+
+def test_a_restart_saves_a_change_made_just_before_it(tmp_path):
+    p = platform(tmp_path)
+    p.restart = lambda: None
+    p.powered_up = lambda: False
+
+    async def restart():
+        device = Device(light_product(), p)
+        device.light.set(brightness=20)
+        await device.restart_soon()
+    asyncio.run(restart())
+    assert Device(light_product(), p).light.brightness == 20

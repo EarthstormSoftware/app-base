@@ -312,7 +312,7 @@ var Base = (function () {
   // the speed, colour and white rows. opts.speed: the modes with a speed; opts.colour: the modes the colour picker
   // sets (Colour's own, or another's); opts.acted(): after each change is sent.
   function light(opts) {
-    var expected = {}, modeButtons = [], defaultColour = null;
+    var expected = {}, modeButtons = [];
     var sending = { colour: false, brightness: false }, pending = { colour: null, brightness: null };
     opts = opts || {};
     var speedModes = opts.speed || [], colourModes = opts.colour || ['Colour'];
@@ -369,22 +369,22 @@ var Base = (function () {
         el('kelvin_text').textContent = kelvin ? kelvin + ' K' : '—';
       }
       el('colour_text').textContent = mode === 'Colour' ? 'Pick a colour' : colourOn ? mode + ' colour' : 'Colour mode only';
-      showDefault(mode);
+      showDefault();
     }
 
-    // Default and Set as Default: Colour mode only, and not when the default is already showing
-    function showDefault(mode) {
-      if (!defaultColour) return;
-      el('default_swatch').style.backgroundColor = defaultColour;
-      var l = info && info.light, current = l && l.mode === 'Colour' && l.parameters.colour;
-      el('default_btn').disabled = el('set_default_btn').disabled = mode !== 'Colour' ||
-        (!!current && !sending.colour && current.toLowerCase() === defaultColour.toLowerCase());
+    // Default and Set as Default, for the whole look: not when the default is already showing. The swatch is the
+    // default's colour, if it has one
+    function showDefault() {
+      if (!config) return;
+      var colour = config.device.default_mode === 'Colour';
+      el('default_swatch').style.display = colour ? '' : 'none';
+      if (colour) el('default_swatch').style.backgroundColor = config.device.default_colour;
+      el('default_btn').disabled = el('set_default_btn').disabled = !!(info && info.light.at_default && !sending.colour);
     }
 
     function update(i) {
       var l = i.light;
       if (!modeButtons.length) buildModes(l.modes);
-      if (config) defaultColour = config.device.default_colour;
       var on = shown(l, 'state'), mode = shown(l, 'mode');
       el('state').textContent = l.alert && l.alert.active ? 'Alert' : on ? 'On' : 'Off';
       el('state').className = 'badge' + (on || (l.alert && l.alert.active) ? ' on' : '');
@@ -443,23 +443,18 @@ var Base = (function () {
     el('colour').addEventListener('input', function () { sendColour(el('colour').value); });
 
     el('default_btn').addEventListener('click', function () {
-      if (defaultColour) el('colour').value = defaultColour.toLowerCase();
       el('default_btn').disabled = true;
-      expect('mode', 'Colour');
-      act('/api/mode', { mode: 'Colour' });  // no colour: the default
+      act('/api/default', {});
     });
-    // The colour showing becomes the default
+    // The look showing becomes the default
     el('set_default_btn').addEventListener('click', function () {
-      var l = info && info.light, c = l && l.parameters.colour;
-      if (!c) return;
       el('set_default_btn').disabled = true;
-      api('/api/config', { device: { default_colour: c.toLowerCase() } }).then(function () {
-        defaultColour = c;
-        say('msg', 'Saved as the default colour.', true);
+      api('/api/default/save', {}).then(function () {
+        say('msg', 'Saved as your default.', true);
         setTimeout(function () { say('msg', ''); }, 3000);
-        loadSettings();
+        return loadSettings();
       }).catch(function (e) { say('msg', 'Not saved: ' + e.message); })
-        .then(function () { showDefault(info ? info.light.mode : null); });
+        .then(refresh);
     });
 
     // White and speed: sent when the slider is let go
