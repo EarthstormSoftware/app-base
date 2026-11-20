@@ -25,8 +25,8 @@ both the running version and a staged update. Check:
    An update needs its own size plus 16 KB free while the old version is still in place.
 5. **Update path:** a device updates over Wi-Fi with the updater of the version it runs. A change to file names,
    folders or extensions (`base/pico/ota.py` `DIRS`, `EXTENSIONS`, `PROTECTED`), the manifest or the update
-   routes must still be accepted by the oldest updater in the field (PlasmaStick 1.4.5 bridge, Pico PIR 1.0.1
-   bridge, and 2.0 before gzipped files), or needs a stated two-step path.
+   routes must still be accepted by the oldest updater in the field (2.0, before gzipped files), or needs a stated
+   two-step path.
 6. **Both platforms:** App Base also runs on a Raspberry Pi (CPython): Pico-only code stays under `base/pico`, and
    `base.compat` covers the differences.
 
