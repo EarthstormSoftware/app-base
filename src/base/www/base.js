@@ -666,7 +666,8 @@ var Base = (function () {
     });
   }
 
-  // The display's rotation (the OS's, from Juggle 1.1): shown on a Pi with a display (or one already turned), in
+  // The display's rotation (the OS's, from Juggle 1.1) and when its screen sleeps (the app's own settings, with the OS's
+  // help for HDMI, from Juggle 1.2): shown on a Pi with a display (or one already turned), in
   // display_rotation, saved by display_save, which restarts the Pi
   function display() {
     if (!el('display_save')) return;
@@ -676,7 +677,11 @@ var Base = (function () {
       loaded = true;
       api('/api/display').then(function (d) {
         el('display_rotation').value = String(d.rotation);
-        document.querySelectorAll('[data-os-display]').forEach(function (n) { n.hidden = !(d.connected || d.rotation); });
+        var turn = d.connected || d.rotation, sleeps = d.connected || d.hdmi;
+        document.querySelectorAll('[data-os-turn]').forEach(function (n) { n.hidden = !turn; });
+        document.querySelectorAll('[data-os-screen]').forEach(function (n) { n.hidden = !sleeps; });
+        document.querySelectorAll('[data-os-backlight]').forEach(function (n) { n.hidden = !d.connected; });
+        document.querySelectorAll('[data-os-display]').forEach(function (n) { n.hidden = !(turn || sleeps); });
       }).catch(function (e) { say('display_msg', 'Could not load the display settings: ' + e.message); });
     });
     el('display_save').addEventListener('click', function () {
@@ -730,14 +735,23 @@ var Base = (function () {
     '<button type="button" class="reset" id="wifi_save">Save</button>' +
     '<p class="msg" id="wifi_msg" role="status" aria-live="polite"></p>';
 
-  var DISPLAY = '<div data-os-display hidden><div class="sec">Display</div><div class="frow"><div class="field">' +
+  var SAVE = '<button type="submit" class="btn-full save" disabled>Save</button><p class="msg" role="status" aria-live="polite"></p>';
+
+  var DISPLAY = '<div data-os-display hidden><div data-os-turn hidden><div class="sec">Display</div><div class="frow"><div class="field">' +
     '<label for="display_rotation">Rotation</label><select id="display_rotation" aria-describedby="display_help">' +
     '<option value="0">Normal</option><option value="90">Turned 90° clockwise</option>' +
     '<option value="180">Upside down (180°)</option><option value="270">Turned 90° anticlockwise (270°)</option>' +
     '</select></div></div><p class="note" id="display_help">The Pi\'s screen: its picture and touch screen turn ' +
     'together. The Pi restarts to use it, and keeps it through updates and a factory reset.</p>' +
     '<button type="button" class="reset" id="display_save">Save &amp; Restart</button>' +
-    '<p class="msg" id="display_msg" role="status" aria-live="polite"></p></div>';
+    '<p class="msg" id="display_msg" role="status" aria-live="polite"></p></div>' +
+    '<form class="settings" data-os-screen hidden><div class="sec">Screen Sleep</div><div class="frow">' +
+    '<div class="field"><label for="screen_timeout">Dark after (minutes untouched, 0: never)</label>' +
+    '<input type="number" name="screen.timeout_minutes" id="screen_timeout" min="0" max="240" step="1" required></div>' +
+    '<div class="field" data-os-backlight hidden><label for="screen_brightness">Brightness (%)</label>' +
+    '<input type="number" name="screen.brightness" id="screen_brightness" min="5" max="100" step="1"></div></div>' +
+    '<p class="note">A touch, key or click wakes it, and does nothing else. It stays on where nothing could wake it.</p>' +
+    SAVE + '</form></div>';
 
   function wifiChange(where, who, password) {
     return '<div data-wifi-change hidden><p class="note">' + where + ' <b id="wifi_current">&hellip;</b>. A new network ' +
@@ -751,8 +765,6 @@ var Base = (function () {
       '<button type="button" class="btn-full" id="wifi_change">Change Wi-Fi</button></div>' +
       '<p class="msg" id="wifi_change_msg" role="status" aria-live="polite"></p></div>';
   }
-
-  var SAVE = '<button type="submit" class="btn-full save" disabled>Save</button><p class="msg" role="status" aria-live="polite"></p>';
 
   function devicePane() {
     var groups = (pico
