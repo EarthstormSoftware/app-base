@@ -364,14 +364,7 @@ class Screen:
     def open(cls, settings=None, **options):
         """The Pi's screen: its backlight, or an HDMI display the OS can turn off, or neither (it only reports being
         asleep). settings, if given, sets its timeout and brightness."""
-        display = Backlight.find()
-        if display is None and os_screen():
-            try:
-                if display_connected_hdmi():
-                    display = HdmiScreen()
-            except RequestError:
-                pass
-        screen = cls(display, **options)
+        screen = cls(find_display(), **options)
         if settings is not None:
             screen.apply(settings)
         return screen
@@ -413,6 +406,18 @@ class Screen:
             self.sleep()
             return True
         return False
+
+
+def find_display():
+    """What turns the Pi's screen off and on: its backlight, or an HDMI display the OS can turn off, or None."""
+    display = Backlight.find()
+    if display is None and os_screen():
+        try:
+            if display_connected_hdmi():
+                display = HdmiScreen()
+        except RequestError:
+            pass
+    return display
 
 
 def display_connected_hdmi():
