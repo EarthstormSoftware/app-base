@@ -23,8 +23,14 @@ import time
 from pathlib import Path
 
 from base.compat import write_atomically
+from base.log import Log
+from base.settings import Setting, is_int
 
+TAG = 'PI'
 NAME_EDITABLE = False
+# A Pi's screen goes dark after so many minutes without input (0: never), and how bright it is when it's on. A product
+# that wants another default (a panel that sleeps after 5 minutes) gives the setting again in its own SETTINGS.
+SETTINGS = {'screen': {'timeout_minutes': Setting(0, is_int(0, 240)), 'brightness': Setting(100, is_int(5, 100))}}
 STATE = os.environ.get('JUGGLE_STATE', str(Path.cwd() / 'state'))
 # 80 on the Pi; PORT for trying it on a PC where 80 is taken
 PORT = int(os.environ.get('PORT', 80))
@@ -267,6 +273,151 @@ def set_display_rotation(rotation):
     if rotation not in ROTATIONS:
         raise RequestError('The rotation is 0, 90, 180 or 270.')
     _request('display-rotation', str(rotation))
+
+
+def os_screen():
+    """Whether the OS puts an HDMI screen to sleep and wakes it for the app (screen-sleep, screen-wake)."""
+    return _since((1, 2))
+
+
+class Backlight:
+    """A display's backlight (the official Touch Display, on DSI), which Juggle OS lets an app with "display" change:
+    on, off, and how bright."""
+    FOLDER = Path('/sys/class/backlight')
+    POWER_ON, POWER_OFF = 0, 4  # bl_power: FB_BLANK_UNBLANK, FB_BLANK_POWERDOWN
+    GAMMA = 2.2
+    LEAST = 5  # the least brightness that can be set, in percent
+    DIMMEST = 0.15  # how bright the least looks (on the curve): any dimmer and the Touch Display looks off
+
+    def __init__(self, folder):
+        self.folder = Path(folder)
+        self.most = int((self.folder / 'max_brightness').read_text())
+
+    @classmethod
+    def find(cls, folder=None):
+        try:
+            return next((cls(f) for f in sorted(Path(folder or cls.FOLDER).iterdir())), None)
+        except (OSError, ValueError):
+            return None
+
+    def _write(self, name, value):
+        try:
+            (self.folder / name).write_text(str(value))
+        except OSError as e:
+            Log.warn(TAG, "Couldn't set the backlight's {}: {}".format(name, e))
+
+    def on(self):
+        self._write('bl_power', self.POWER_ON)
+
+    def off(self):
+        self._write('bl_power', self.POWER_OFF)
+
+    def set_brightness(self, percent):
+        """percent as it looks: the eye sees the backlight's steps as much larger when it's dim, so the steps follow
+        a curve (GAMMA) and half looks about half as bright. The least (LEAST) looks DIMMEST, the most full."""
+        looks = self.DIMMEST + (1 - self.DIMMEST) * (percent - self.LEAST) / (100 - self.LEAST)
+        self._write('brightness', max(1, round(self.most * looks ** self.GAMMA)))
+
+
+class HdmiScreen:
+    """An HDMI display: no backlight, so the OS turns its signal off and on (it needs the console, which an app
+    drawing on the screen has put in graphics mode: the OS takes it out of that, and puts it back when it wakes)."""
+
+    def on(self):
+        self._ask('screen-wake')
+
+    def off(self):
+        self._ask('screen-sleep')
+
+    def set_brightness(self, percent):
+        pass  # no backlight
+
+    @staticmethod
+    def _ask(request):
+        try:
+            _request(request)
+        except (RequestError, OSError, subprocess.SubprocessError) as e:
+            Log.warn(TAG, "Couldn't ask the OS for {}: {}".format(request, e))
+
+
+class Screen:
+    """The screen going dark when nothing has touched it for a while, and waking. The same for every display and every
+    app: display is what turns it off and on (a Backlight, an HdmiScreen, or anything with on(), off() and
+    set_brightness(percent)), or None where there's nothing to turn off.
+
+    The app calls input() for each touch, key or click, and tick() about once a second; redraw() is called after the
+    screen wakes, for a display that needs the picture drawn again (HDMI). The input that wakes the screen does
+    nothing else, which input() says by returning False."""
+
+    def __init__(self, display=None, timeout=0, clock=time.monotonic, redraw=None):
+        self.display = display
+        self.timeout = timeout  # seconds without input before it goes dark (0: never)
+        self.clock = clock
+        self.redraw = redraw
+        self.touched_at = clock()
+        self.awake = True
+        self.waking = False  # the input that woke it, until it lifts
+        if display:
+            display.on()  # it may have been left off when the app last stopped
+
+    @classmethod
+    def open(cls, settings=None, **options):
+        """The Pi's screen: its backlight, or an HDMI display the OS can turn off, or neither (it only reports being
+        asleep). settings, if given, sets its timeout and brightness."""
+        display = Backlight.find()
+        if display is None and os_screen():
+            try:
+                if display_connected_hdmi():
+                    display = HdmiScreen()
+            except RequestError:
+                pass
+        screen = cls(display, **options)
+        if settings is not None:
+            screen.apply(settings)
+        return screen
+
+    def apply(self, settings):
+        """The timeout and brightness as set (the 'screen' settings)."""
+        self.timeout = settings.get('screen', 'timeout_minutes') * 60
+        if self.display:
+            self.display.set_brightness(settings.get('screen', 'brightness'))
+
+    def input(self, lifted=False):
+        """A touch, key or click (lifted: it's a release, or a key press, which is over at once). True if the app should
+        use it, False if it only woke the screen, or is that same touch still down."""
+        self.touched_at = self.clock()
+        if self.awake and not self.waking:
+            return True
+        if not self.awake:
+            self.wake()
+            self.waking = True
+        if lifted:
+            self.waking = False
+        return False
+
+    def sleep(self):
+        self.awake = False
+        if self.display:
+            self.display.off()
+
+    def wake(self):
+        self.awake = True
+        if self.display:
+            self.display.on()
+        if self.redraw:
+            self.redraw()
+
+    def tick(self):
+        """Goes dark if the timeout has passed. True when it does, so the app can drop what it has open."""
+        if self.awake and self.timeout and self.clock() - self.touched_at >= self.timeout:
+            self.sleep()
+            return True
+        return False
+
+
+def display_connected_hdmi():
+    """Whether the Pi has an HDMI display (the OS says: its connector has a monitor's EDID)."""
+    return bool(clock_settings().get('display', {}).get('hdmi'))
 
 
 def _need_setup():
