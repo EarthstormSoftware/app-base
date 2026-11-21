@@ -202,6 +202,8 @@ class Device:
             Log.info(TAG, 'MQTT is off (no broker, or mqtt.enabled is false)')
         if hasattr(self.platform, 'watchdog'):
             tasks.append(asyncio.create_task(self.platform.watchdog()))
+        if hasattr(self.platform, 'screen'):
+            tasks.append(asyncio.create_task(self.platform.screen(self.settings)))
         Log.info(TAG, '{} {} on port {}'.format(self.product.NAME, self.product.VERSION, port))
         await asyncio.gather(*tasks)
 

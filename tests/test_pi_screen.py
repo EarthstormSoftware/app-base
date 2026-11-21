@@ -181,3 +181,110 @@ def test_open_uses_hdmi_only_where_the_os_can_turn_it_off(tmp_path, monkeypatch)
     assert isinstance(pi.Screen.open().display, pi.HdmiScreen)
     monkeypatch.setattr(pi, 'display_connected_hdmi', lambda: False)
     assert pi.Screen.open().display is None
+
+
+# The input devices, for an app that doesn't draw on the screen
+
+@pytest.fixture
+def devices(tmp_path, monkeypatch):
+    """/dev/input and /sys/class/input in a temporary folder: event files with a name each."""
+    dev, sys_input = tmp_path / 'dev', tmp_path / 'sys'
+    dev.mkdir()
+    monkeypatch.setattr(pi.Inputs, 'FOLDER', dev)
+    monkeypatch.setattr(pi.Inputs, 'NAMES', sys_input)
+
+    def add(event, name):
+        (dev / event).write_bytes(b'')
+        (sys_input / event / 'device').mkdir(parents=True)
+        (sys_input / event / 'device' / 'name').write_text(name + '\n')
+    add.dev = dev
+    return add
+
+
+def watch():
+    added, removed, used = [], [], []
+    inputs = pi.Inputs(lambda fd, callback: added.append(fd), removed.append, lambda: used.append(1))
+    return inputs, added, removed, used
+
+
+def test_every_input_device_is_watched_but_the_hdmi_jack(devices):
+    devices('event0', 'Chicony USB Keyboard')
+    devices('event1', 'vc4-hdmi')
+    devices('event2', '10-0038 generic ft5x06 (79)')
+    inputs, added, _, _ = watch()
+    inputs.scan()
+    assert sorted(inputs.fds) == ['event0', 'event2'] and len(inputs) == 2
+    inputs.scan()
+    assert len(added) == 2  # each once
+
+
+def test_a_device_plugged_in_later_is_watched_and_one_unplugged_is_let_go(devices):
+    devices('event0', 'Keyboard')
+    inputs, added, removed, _ = watch()
+    inputs.scan()
+    devices('event3', 'Mouse')
+    inputs.scan()
+    assert len(inputs) == 2
+    # event0 goes (a file that's open can't be deleted on Windows, so the folder is swapped for one without it)
+    after = devices.dev.parent / 'after'
+    after.mkdir()
+    (after / 'event3').write_bytes(b'')
+    pi.Inputs.FOLDER = after
+    inputs.scan()
+    assert list(inputs.fds) == ['event3'] and len(removed) == 1
+
+
+def test_no_input_devices_is_none_to_watch(tmp_path, monkeypatch):
+    monkeypatch.setattr(pi.Inputs, 'FOLDER', tmp_path / 'missing')
+    inputs, _, _, _ = watch()
+    inputs.scan()
+    assert len(inputs) == 0
+
+
+def test_input_to_read_is_used_and_thrown_away():
+    import os
+    read, write = os.pipe()
+    inputs, _, _, used = watch()
+    os.write(write, b'x' * 48)
+    inputs.activity(read)
+    assert used == [1]
+    os.close(read)
+    os.close(write)
+
+
+def test_a_screen_that_nothing_could_wake_stays_on():
+    screen, clock, display = make(60)
+    screen.can_wake = False
+    clock.now += 1000
+    assert screen.tick() is False and screen.awake
+
+
+def test_the_brightness_is_only_written_when_it_changes(tmp_path):
+    settings = Settings(str(tmp_path / 'config.json'), merge(pi.SETTINGS))
+    screen, clock, display = make(60)
+    screen.apply(settings)
+    screen.apply(settings)
+    assert display.calls == [('brightness', 100)]
+    settings.update({'screen': {'brightness': 30}})
+    screen.apply(settings)
+    assert display.calls[-1] == ('brightness', 30) and len(display.calls) == 2
+
+
+def test_an_app_that_draws_on_the_screen_runs_its_own(tmp_path, monkeypatch):
+    import asyncio
+    mark = tmp_path / 'display'
+    mark.write_text('')
+    monkeypatch.setattr(pi, 'DISPLAY_MARK', mark)
+    opened = []
+    monkeypatch.setattr(pi.Screen, 'open', classmethod(lambda cls, *args, **kwargs: opened.append(1)))
+    asyncio.run(pi.screen(None))
+    assert opened == []  # it returned at once, and didn't look for a display
+
+
+def test_a_pi_with_no_display_has_nothing_to_turn_off(tmp_path, monkeypatch):
+    import asyncio
+    monkeypatch.setattr(pi, 'DISPLAY_MARK', tmp_path / 'none')
+    monkeypatch.setattr(pi.Backlight, 'FOLDER', tmp_path)
+    monkeypatch.setattr(pi, 'os_screen', lambda: False)
+    settings = Settings(str(tmp_path / 'config.json'), merge(pi.SETTINGS))
+    asyncio.run(asyncio.wait_for(pi.screen(settings), 5))  # returns, rather than looping

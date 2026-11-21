@@ -27,6 +27,8 @@ from base.log import Log
 from base.settings import Setting, is_int
 
 TAG = 'PI'
+# While an app draws on the screen, this file is there (Juggle OS's app: the console's logo and login screen are off)
+DISPLAY_MARK = Path('/run/juggle/display')
 NAME_EDITABLE = False
 # A Pi's screen goes dark after so many minutes without input (0: never), and how bright it is when it's on. A product
 # that wants another default (a panel that sleeps after 5 minutes) gives the setting again in its own SETTINGS.
@@ -357,6 +359,8 @@ class Screen:
         self.touched_at = clock()
         self.awake = True
         self.waking = False  # the input that woke it, until it lifts
+        self.can_wake = True  # false while nothing could wake it: then it stays on
+        self._brightness = None
         if display:
             display.on()  # it may have been left off when the app last stopped
 
@@ -372,8 +376,10 @@ class Screen:
     def apply(self, settings):
         """The timeout and brightness as set (the 'screen' settings)."""
         self.timeout = settings.get('screen', 'timeout_minutes') * 60
-        if self.display:
-            self.display.set_brightness(settings.get('screen', 'brightness'))
+        brightness = settings.get('screen', 'brightness')
+        if self.display and brightness != self._brightness:
+            self._brightness = brightness
+            self.display.set_brightness(brightness)
 
     def input(self, lifted=False):
         """A touch, key or click (lifted: it's a release, or a key press, which is over at once). True if the app should
@@ -402,10 +408,90 @@ class Screen:
 
     def tick(self):
         """Goes dark if the timeout has passed. True when it does, so the app can drop what it has open."""
-        if self.awake and self.timeout and self.clock() - self.touched_at >= self.timeout:
+        if self.awake and self.timeout and self.can_wake and self.clock() - self.touched_at >= self.timeout:
             self.sleep()
             return True
         return False
+
+
+class Inputs:
+    """The Pi's input devices (keyboards, mice, touch screens), for an app that doesn't draw on the screen: any of them
+    wakes it. Devices come and go (a USB keyboard), so scan() looks again. add_reader(fd, callback) and
+    remove_reader(fd) are the event loop's; used(fd) is called for each device that has something to read."""
+    FOLDER = Path('/dev/input')
+    NAMES = Path('/sys/class/input')
+    # Not input: the HDMI port's jack and CEC events
+    IGNORE = ('vc4-hdmi',)
+
+    def __init__(self, add_reader, remove_reader, used):
+        self.add_reader, self.remove_reader, self.used = add_reader, remove_reader, used
+        self.fds = {}  # event name -> fd
+
+    def __len__(self):
+        return len(self.fds)
+
+    def _wanted(self, event):
+        try:
+            name = (self.NAMES / event.name / 'device' / 'name').read_text().strip()
+        except OSError:
+            return True
+        return not name.startswith(self.IGNORE)
+
+    def scan(self):
+        try:
+            events = sorted(self.FOLDER.glob('event*'))
+        except OSError:
+            events = []
+        for event in events:
+            if event.name not in self.fds and self._wanted(event):
+                try:
+                    fd = os.open(str(event), os.O_RDONLY | getattr(os, 'O_NONBLOCK', 0))
+                except OSError:
+                    continue
+                self.fds[event.name] = fd
+                self.add_reader(fd, lambda fd=fd: self.activity(fd))
+        here = {event.name for event in events}
+        for name in [name for name in self.fds if name not in here]:
+            self.close(name)
+
+    def close(self, name):
+        fd = self.fds.pop(name)
+        self.remove_reader(fd)
+        os.close(fd)
+
+    def activity(self, fd):
+        """Something to read on fd: it's read (and thrown away), and used() told. A device that has gone is closed."""
+        try:
+            data = os.read(fd, 4096)
+        except BlockingIOError:
+            return
+        except OSError:
+            data = b''
+        if data:
+            self.used()
+        else:
+            for name, other in list(self.fds.items()):
+                if other == fd:
+                    self.close(name)
+
+
+async def screen(settings):
+    """The Pi's screen going dark and waking for an app that doesn't draw on it (one that does has the touches, and
+    runs Screen itself): any input device wakes it. It stays on where nothing could wake it, or there's no display
+    to turn off."""
+    if DISPLAY_MARK.exists():
+        return
+    power = Screen.open(settings)
+    if power.display is None:
+        return
+    loop = asyncio.get_running_loop()
+    inputs = Inputs(loop.add_reader, loop.remove_reader, lambda: power.input(lifted=True))
+    while True:
+        inputs.scan()
+        power.can_wake = len(inputs) > 0
+        power.apply(settings)
+        power.tick()
+        await asyncio.sleep(1)
 
 
 def find_display():
