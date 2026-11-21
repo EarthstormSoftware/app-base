@@ -112,7 +112,7 @@ def test_with_no_display_it_still_knows_it_is_asleep():
 
 def test_the_settings_give_its_timeout_and_brightness(tmp_path):
     settings = Settings(str(tmp_path / 'config.json'), merge(pi.SETTINGS))
-    assert settings.get('screen', 'timeout_minutes') == 0  # never, as v1.1's console is
+    assert settings.get('screen', 'timeout_minutes') == 5  # every Pi's screen sleeps, unless the product says never
     screen, clock, display = make(60)
     settings.update({'screen': {'timeout_minutes': 5, 'brightness': 40}})
     screen.apply(settings)
@@ -288,3 +288,11 @@ def test_a_pi_with_no_display_has_nothing_to_turn_off(tmp_path, monkeypatch):
     monkeypatch.setattr(pi, 'os_screen', lambda: False)
     settings = Settings(str(tmp_path / 'config.json'), merge(pi.SETTINGS))
     asyncio.run(asyncio.wait_for(pi.screen(settings), 5))  # returns, rather than looping
+
+
+def test_a_product_that_needs_the_screen_on_says_so(tmp_path):
+    from base.settings import Setting, is_int
+    always_on = {'screen': {'timeout_minutes': Setting(0, is_int(0, 240))}}
+    settings = Settings(str(tmp_path / 'config.json'), merge(pi.SETTINGS, always_on))
+    assert settings.get('screen', 'timeout_minutes') == 0
+    assert settings.get('screen', 'brightness') == 100  # the rest is the base's

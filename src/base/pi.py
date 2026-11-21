@@ -30,9 +30,10 @@ TAG = 'PI'
 # While an app draws on the screen, this file is there (Juggle OS's app: the console's logo and login screen are off)
 DISPLAY_MARK = Path('/run/juggle/display')
 NAME_EDITABLE = False
-# A Pi's screen goes dark after so many minutes without input (0: never), and how bright it is when it's on. A product
-# that wants another default (a panel that sleeps after 5 minutes) gives the setting again in its own SETTINGS.
-SETTINGS = {'screen': {'timeout_minutes': Setting(0, is_int(0, 240)), 'brightness': Setting(100, is_int(5, 100))}}
+# A Pi's screen goes dark after so many minutes without input (0: never), and how bright it is when it's on. Every Pi
+# sleeps its screen after 5 minutes (it only does where something can wake it); a product that needs the screen on all
+# the time gives the setting again in its own SETTINGS, with a default of 0.
+SETTINGS = {'screen': {'timeout_minutes': Setting(5, is_int(0, 240)), 'brightness': Setting(100, is_int(5, 100))}}
 STATE = os.environ.get('JUGGLE_STATE', str(Path.cwd() / 'state'))
 # 80 on the Pi; PORT for trying it on a PC where 80 is taken
 PORT = int(os.environ.get('PORT', 80))
