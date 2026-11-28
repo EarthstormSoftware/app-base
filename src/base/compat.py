@@ -27,6 +27,12 @@ if MICROPYTHON:
     def mem_free():
         import gc
         return gc.mem_free()
+
+    def refused(error):
+        """Whether error is a connection that was refused: an OSError with that number, as MicroPython has no
+        ConnectionRefusedError."""
+        import errno
+        return isinstance(error, OSError) and bool(error.args) and error.args[0] == errno.ECONNREFUSED
 else:
     import asyncio  # noqa: F401
     import json  # noqa: F401
@@ -46,6 +52,10 @@ else:
 
     def collect():
         pass
+
+    def refused(error):
+        """Whether error is a connection that was refused."""
+        return isinstance(error, ConnectionRefusedError)
 
     def mem_free():
         """Free memory for the device (MemAvailable), in bytes, or None."""

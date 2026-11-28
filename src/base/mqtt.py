@@ -20,7 +20,7 @@ Retained topics the device stops using (after a topic setting changes) are clear
 
 The client is the platform's (platform.mqtt_client): base.mqttclient on a Pi, mqtt_as on a Pico.
 """
-from base.compat import asyncio, json, release
+from base.compat import asyncio, json, refused, release
 from base.log import Log
 from base.settings import Setting, is_bool, is_text
 
@@ -184,7 +184,7 @@ def failure(e):
     """Why connecting failed, for the page."""
     if isinstance(e, asyncio.TimeoutError):
         return "The broker didn't answer in time."
-    if isinstance(e, ConnectionRefusedError):
+    if refused(e):
         return 'The broker refused the connection: is it running, and on that port?'
     text = str(e) or e.__class__.__name__
     if 'getaddrinfo' in text or 'Name or service' in text or 'nodename' in text:
